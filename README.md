@@ -4,6 +4,8 @@ I’m a hardware developer for electromobility. I also develop software for embe
 
 - 🔭 I’m currently working on the hardware and software for an electric car. This includes a new controller for pedal evaluation and other peripherals. A BMS also needs to be installed.
 
+- For Data logging a raspberry pi is used, to read out the CAN bus, analyse the data and save the measurements.
+
 - 🌱 I’m currently learning how an STM32 is built internally and how its structure is laid out.
 
 ##
