@@ -13,9 +13,11 @@
 #   py tools/c_stylecheck.py ../EAuto_* ../IMD_*  -> beliebige Ordner / Glob-Muster
 #   py tools/c_stylecheck.py ../STM32_Millis/millis.h   -> einzelne Datei
 #   py tools/c_stylecheck.py -r                   -> Reports nach reports/<JJJJMMTT>_<Projekt>.txt
+#   py tools/c_stylecheck.py -r -f                -> Reports nur fuer Projekte mit Befunden
 #
 # Optionen:
 #   -r / --report [DIR]  je Projekt einen Report <JJJJMMTT>_<Projekt>.txt schreiben (Standard: reports/)
+#   -f / --findings-only mit -r nur Reports fuer Projekte mit Befunden schreiben
 #   -q / --quiet         Dateien ohne Befund nicht anzeigen
 #   -s / --summary       nur Zusammenfassung je Kategorie
 #   -x / --exclude REGEX zusaetzliche Pfade ausschliessen (mehrfach moeglich)
@@ -56,8 +58,13 @@ DEFAULT_EXCLUDE = [
 INC_SECTIONS = [
     "// Einfuegen der standard Include-Dateien",
     "// Einfuegen der STM Include-Dateien",
-    "// Einfuegen der eigenen Include Dateien",
+    "// Einfuegen der eigenen Include-Dateien",
 ]
+GUARD_SECTION = "// Sicherheitssymbol"
+DEBUG_SECTION = "// Definiere Debug-Symbole"
+DEBUG_NAME = re.compile(r"//\s*\w+\s+Debug[\s-]*Symbol", re.I)
+VAR_SECTION = "// Variablen definieren"
+VAR_INC_SECTION = "// Variablen einbinden"
 HEAD_KEYS = ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
 KEYWORDS = {"if", "for", "while", "switch", "return", "sizeof", "else"}
 
@@ -138,8 +145,109 @@ def check_fallthrough(L, i, add):
     add(i + 1, "case ohne break (Fall-through nicht markiert)", short(L[i]))
 
 
+# Abschnittsform: Name, Trennlinie, Inhalt, Trennlinie, danach Leerzeile oder Dateiende
+def check_section_form(L, i, add):
+    name = L[i].strip()[3:]
+    if i + 1 >= len(L) or L[i + 1] != SEP:
+        add(i + 1, "Abschnitte", f"'{name}' ohne Trennlinie danach")
+        return
+    end = next((j for j in range(i + 2, len(L)) if L[j] == SEP), None)
+    if end is None:
+        add(i + 1, "Abschnitte", f"'{name}' ohne abschliessende Trennlinie")
+    elif end + 1 < len(L) and L[end + 1].strip():
+        add(end + 2, "Abschnitte", f"keine Leerzeile nach Abschnitt '{name}'")
+
+
+# Header mit passender .c-Datei braucht 'Definiere Debug-Symbole' mit DEBUG_<NAME> in #ifdef DEBUG
+def check_debug_symbols(L, name, add):
+    # Falsch benannte Abschnitte zaehlen hier mit, der Name wird unter "Abschnitte" gemeldet
+    pos = [i for i, l in enumerate(L) if l == DEBUG_SECTION or DEBUG_NAME.match(l)]
+    if not pos:
+        add(0, "Debug-Symbole", f"Abschnitt '{DEBUG_SECTION[3:]}' fehlt (passende .c-Datei vorhanden)")
+        return
+    check_section_form(L, pos[0], add)
+    sym = re.compile(rf"^(//)?\s*#define\s+DEBUG_{name}\b")
+    in_ifdef = False
+    for l in L[pos[0] + 1:]:
+        if re.match(r"#ifdef\s+DEBUG\b", l):
+            in_ifdef = True
+        elif l.startswith("#endif"):
+            in_ifdef = False
+        elif in_ifdef and sym.match(l):
+            return
+    add(pos[0] + 1, "Debug-Symbole", f"'#define DEBUG_{name}' innerhalb von '#ifdef DEBUG' fehlt")
+
+
+# Reihenfolge der Abschnitte: anchors = [(Zeilenindex, Rang, Name)] in Dateireihenfolge
+# Gemeldet werden nur Abschnitte ausserhalb der laengsten korrekt sortierten Folge
+def check_order(anchors, add):
+    n = len(anchors)
+    best, prev = [1] * n, [-1] * n
+    for i in range(n):
+        for j in range(i):
+            if anchors[j][1] <= anchors[i][1] and best[j] + 1 > best[i]:
+                best[i], prev[i] = best[j] + 1, j
+    keep = set()
+    end = max(range(n), key=lambda i: (best[i], i)) if n else -1
+    while end >= 0:
+        keep.add(end)
+        end = prev[end]
+    for i, (line, rank, label) in enumerate(anchors):
+        if i in keep:
+            continue
+        later = next((a for j, a in enumerate(anchors[:i]) if j in keep and a[1] > rank), None)
+        if later:
+            add(line + 1, "Reihenfolge", f"'{label}' steht nach '{later[2]}'")
+            continue
+        earlier = next((a for j, a in enumerate(anchors) if j > i and j in keep and a[1] < rank), None)
+        if earlier:
+            add(line + 1, "Reihenfolge", f"'{label}' steht vor '{earlier[2]}'")
+
+
+# Positionen der bekannten Abschnitte fuer die Reihenfolgepruefung
+def order_anchors(L, is_header, guard, first_func):
+    anchors = []
+
+    def first(pred, rank, label):
+        pos = next((i for i, l in enumerate(L) if pred(l)), None)
+        if pos is not None:
+            anchors.append((pos, rank, label))
+
+    first(lambda l: re.match(r"//\s*Titel\b", l), 0, "Kopfblock")
+    if is_header:
+        first(lambda l: l == "#pragma once", 1, GUARD_SECTION[3:])
+        first(lambda l: l == f"#ifndef {guard}", 2, "Dateiheader definieren")
+    for k, s in enumerate(INC_SECTIONS):
+        first(lambda l, s=s: l == s, 3 + k, s[3:])
+    if is_header:
+        first(lambda l: l == DEBUG_SECTION or DEBUG_NAME.match(l), 6, DEBUG_SECTION[3:])
+        first(lambda l: l == "// Version definieren", 7, "Version definieren")
+        first(lambda l: l == "// Konstanten definieren", 8, "Konstanten definieren")
+        # Typedef-Abschnitte haben beschreibende Namen, es zaehlen alle
+        for i, l in enumerate(L[:-1]):
+            if re.match(r"//.*typedef", l, re.I) and L[i + 1] == SEP:
+                anchors.append((i, 9, l[3:].strip()))
+        first(lambda l: l == "// Definiere globale Variablen", 10, "Definiere globale Variablen")
+        first(lambda l: l == "// Funktionen definieren", 11, "Funktionen definieren")
+        first(lambda l: l == f"#endif /* {guard} */", 12, "Abschluss")
+    else:
+        first(lambda l: l == VAR_SECTION, 6, VAR_SECTION[3:])
+        first(lambda l: l == VAR_INC_SECTION, 7, VAR_INC_SECTION[3:])
+        if first_func:
+            anchors.append((first_func[0], 8, f"Funktion {first_func[1]} ()"))
+    anchors.sort(key=lambda a: a[0])
+    return anchors
+
+
+# Basisnamen (klein) aller .c-Dateien unterhalb eines Ordners, inkl. ausgeschlossener
+def c_basenames(base):
+    files = glob.glob(os.path.join(base, "**", "*.c"), recursive=True)
+    return {os.path.splitext(os.path.basename(p))[0].lower() for p in files}
+
+
 # Eine Datei pruefen, Rueckgabe: Liste von Issue, sortiert nach Zeile
-def check_file(path):
+# c_names: Basisnamen der .c-Dateien im Projekt (zusaetzlich: Ordner der Datei und ../Src)
+def check_file(path, c_names=None):
     raw = open(path, "rb").read()
     issues = []
 
@@ -195,18 +303,18 @@ def check_file(path):
         for n in pos[1:]:
             add(n, "Abschnitte", f"doppelt: '{s[3:]}'")
 
-    # Debug Symbols
+    # Debug-Symbole (ein Name, egal ob ein oder mehrere Symbole)
     for i, l in enumerate(L):
-        if re.match(r"//\s*\w+\s+Debug Symbols", l) and l != "// Definiere Debug Symbols":
-            add(i + 1, "Abschnitte", f"Debug-Abschnitt heisst '{l.strip()}' statt 'Definiere Debug Symbols'")
+        if DEBUG_NAME.match(l) and l != DEBUG_SECTION:
+            add(i + 1, "Abschnitte", f"Debug-Abschnitt heisst '{l.strip()}' statt '{DEBUG_SECTION[3:]}'")
 
     if is_header:
         guard = f"INC_{name}_H_"
         if "#pragma once" not in L:
             add(0, "Header", "#pragma once fehlt")
-        elif "// Saveguard symbol" not in L:
+        elif GUARD_SECTION not in L:
             idx = L.index("#pragma once")
-            add(max(idx - 1, 1), "Header", f"Abschnittsname '{L[max(idx - 2, 0)].strip()}' statt 'Saveguard symbol'")
+            add(max(idx - 1, 1), "Header", f"Abschnittsname '{L[max(idx - 2, 0)].strip()}' statt '{GUARD_SECTION[3:]}'")
         if f"#ifndef {guard}" not in L:
             found = [(i, l) for i, l in enumerate(L) if l.startswith("#ifndef")][:1]
             add(found[0][0] + 1 if found else 0, "Header", f"Include-Guard nicht {guard}")
@@ -225,13 +333,33 @@ def check_file(path):
         has_proto = any(re.match(r"^\w[\w\s\*]*\s\*?\w+\s*\(.*\)\s*;", l) for l in L)
         if has_proto and "// Funktionen definieren" not in L:
             add(0, "Header", "Abschnitt 'Funktionen definieren' fehlt")
+        d = os.path.dirname(os.path.abspath(path))
+        local = c_basenames(d) | c_basenames(os.path.join(os.path.dirname(d), "Src"))
+        if name.lower() in (c_names or set()) | local:
+            check_debug_symbols(L, name, add)
     else:
-        var = [(i, l) for i, l in enumerate(L) if re.match(r"//\s*Variablen\b", l)]
-        if var and "// Variablen definieren" not in L:
-            add(var[0][0] + 1, "Abschnitte", f"Variablen-Abschnitt heisst '{var[0][1].strip()}' statt 'Variablen definieren'")
+        # "Variablen definieren" ist Pflicht, "Variablen einbinden" optional (nur Schreibweise + Form)
+        var = [(i, l) for i, l in enumerate(L) if re.match(r"//\s*Variable", l, re.I)]
+        defs = [i for i, l in var if l == VAR_SECTION]
+        incs = [i for i, l in var if l == VAR_INC_SECTION]
+        for i, l in var:
+            if l not in (VAR_SECTION, VAR_INC_SECTION) and re.match(r"//\s*Variable\w*\s+einbinden", l, re.I):
+                add(i + 1, "Abschnitte", f"Variablen-Abschnitt heisst '{l.strip()}' statt '{VAR_INC_SECTION[3:]}'")
+        if not defs:
+            other = [i for i, l in var if l != VAR_INC_SECTION]
+            if other:
+                add(other[0] + 1, "Abschnitte", f"Variablen-Abschnitt heisst '{L[other[0]].strip()}' statt '{VAR_SECTION[3:]}'")
+            else:
+                add(0, "Abschnitte", f"fehlt: '{VAR_SECTION[3:]}'")
+        for sec, pos in ((VAR_SECTION, defs), (VAR_INC_SECTION, incs)):
+            for i in pos[1:]:
+                add(i + 1, "Abschnitte", f"doppelt: '{sec[3:]}'")
+            for i in pos:
+                check_section_form(L, i, add)
 
     # Zeilenweise Pruefungen
     in_block = False
+    first_func = None
     for i, l in enumerate(L):
         n = i + 1
         s = l.strip()
@@ -264,8 +392,9 @@ def check_file(path):
             add(n, "K&R-Klammer (nicht Allman)", short(l))
         if re.match(r"\s*(case\b.*|default\s*):\s*$", code):
             # Mehrere Marken untereinander erlaubt, nur die letzte braucht den Block
+            # Ausnahme: direkt folgendes einzelnes "return ...;" oder "break;" braucht keinen Block
             nxt = re.sub(r"//.*", "", next_code_line(L, i)).strip()
-            if nxt != "{" and not re.match(r"(case\b.*|default\s*):$", nxt):
+            if nxt != "{" and not re.match(r"(case\b.*|default\s*):$", nxt) and not re.match(r"(return\b.*|break\s*);$", nxt):
                 add(n, "case ohne { }-Block", short(l))
             elif nxt == "{":
                 check_fallthrough(L, i, add)
@@ -298,7 +427,13 @@ def check_file(path):
                 if fm.group(3).strip() == "":
                     add(n, "leere Parameterliste statt (void)", short(l))
             if is_def:
-                prev = L[max(0, i - 2):i]
+                if first_func is None:
+                    first_func = (i, fm.group(1))
+                # #if / #ifdef zwischen Trennlinie und Funktion sind erlaubt
+                k = i
+                while k > 0 and re.match(r"\s*#\s*(if|ifdef|ifndef|elif)\b", L[k - 1]):
+                    k -= 1
+                prev = L[max(0, k - 2):k]
                 if not (len(prev) == 2 and prev[1] == SEP and re.match(r"// \S", prev[0])):
                     add(n, "Funktion ohne Kommentar+Trennlinie davor", short(l))
 
@@ -312,6 +447,9 @@ def check_file(path):
                 add(n, f"Zeilenkommentar nicht auf Spalte {COMMENT_COL}", f"Spalte {col}: {ctx}")
             if " " in cm.group(1):
                 add(n, "Kommentar mit Leerzeichen statt Tabs ausgerichtet", ctx)
+
+    # Reihenfolge der Abschnitte
+    check_order(order_anchors(L, is_header, f"INC_{name}_H_", first_func), add)
 
     issues.sort(key=lambda x: x.line)
     return issues
@@ -408,6 +546,8 @@ def main():
     ap.add_argument("paths", nargs="*", help=f"Ordner, Dateien oder Glob-Muster (Standard: {default_target})")
     ap.add_argument("-r", "--report", nargs="?", const=default_reports, metavar="DIR",
                     help=f"je Projekt Report <JJJJMMTT>_<Projekt>.txt schreiben (Standard: {default_reports})")
+    ap.add_argument("-f", "--findings-only", action="store_true",
+                    help="mit -r nur Reports fuer Projekte mit Befunden schreiben")
     ap.add_argument("-q", "--quiet", action="store_true", help="Dateien ohne Befund nicht anzeigen")
     ap.add_argument("-s", "--summary", action="store_true", help="nur Zusammenfassung ausgeben")
     ap.add_argument("-x", "--exclude", action="append", default=[], metavar="REGEX", help="zusaetzlich ausschliessen")
@@ -427,7 +567,8 @@ def main():
     total = collections.Counter()
     n_files = n_clean = 0
     for proj, (base, files) in projects.items():
-        results = [(p, check_file(p)) for p in files]
+        c_names = c_basenames(base)
+        results = [(p, check_file(p, c_names)) for p in files]
         n_files += len(results)
         n_clean += sum(1 for _, i in results if not i)
         for _, iss in results:
@@ -435,10 +576,14 @@ def main():
                 total[x.cat] += 1
 
         if args.report:
+            n_issues = sum(len(i) for _, i in results)
+            if args.findings_only and not n_issues:
+                print(f"{proj:30} {0:6} Befunde  -> kein Report")
+                continue
             path = os.path.join(args.report, f"{date_prefix}_{proj}.txt")
             with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
                 f.write(build_report(proj, base, results))
-            print(f"{proj:30} {sum(len(i) for _, i in results):6} Befunde  -> {os.path.relpath(path)}")
+            print(f"{proj:30} {n_issues:6} Befunde  -> {os.path.relpath(path)}")
             continue
 
         if args.summary:

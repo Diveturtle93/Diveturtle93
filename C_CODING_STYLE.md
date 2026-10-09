@@ -37,7 +37,7 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 ```
 
 - Zwischen zwei Abschnitten steht genau **eine Leerzeile**.
-- Die Include-Abschnitte werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
+- Die Include-Abschnitte (und in `.c`-Dateien `Variablen definieren`) werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
 - Mehrere Typdefinitionen innerhalb eines Abschnitts werden nur durch eine Trennlinie getrennt (ohne Leerzeile).
 
 ---
@@ -70,18 +70,20 @@ Jede Datei (`.c` und `.h`) beginnt mit diesem Kopfblock. Zwischen Bezeichner und
 Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 
 1. **Dateikopf**
-2. **Saveguard symbol** – `#pragma once`
+2. **Sicherheitssymbol** – `#pragma once`
 3. **Dateiheader definieren** – Include-Guard `INC_<NAME>_H_`
 4. **Einfuegen der standard Include-Dateien** – `<stdint.h>`, `<stdbool.h>`, …
 5. **Einfuegen der STM Include-Dateien** – `"main.h"`, `"can.h"`, …
-6. **Einfuegen der eigenen Include Dateien**
-7. Definiere Debug Symbols – `DEBUG_<NAME>` innerhalb von `#ifdef DEBUG`
+6. **Einfuegen der eigenen Include-Dateien**
+7. Definiere Debug-Symbole – `DEBUG_<NAME>` innerhalb von `#ifdef DEBUG` (gleicher Name fuer ein oder mehrere Symbole). **Pflicht, wenn eine gleichnamige `.c`-Datei existiert** (`canbus.h` + `canbus.c` → `DEBUG_CANBUS`); ein auskommentiertes Symbol zaehlt als vorhanden
 8. **Version definieren** – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`
 9. Konstanten definieren
 10. Typedefs (Abschnittsname beschreibend, z. B. `Typedefines definieren`, `Definiere Statemaschine Typedefines`)
 11. Definiere globale Variablen (`extern`)
 12. **Funktionen definieren** – Prototypen
 13. **Abschluss** – `#endif /* INC_<NAME>_H_ */` + Trennlinie
+
+Die Reihenfolge wird geprueft; optionale Abschnitte duerfen fehlen, die vorhandenen muessen aber in dieser Reihenfolge stehen. Typedef-Abschnitte werden an `Typedef` im Namen erkannt.
 
 `<NAME>` ist der Dateiname in Grossbuchstaben ohne Endung (`canbus.h` → `INC_CANBUS_H_`, `CANBUS_MAJOR`, `DEBUG_CANBUS`).
 
@@ -101,7 +103,7 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 // Quelle	:
 //----------------------------------------------------------------------
 
-// Saveguard symbol
+// Sicherheitssymbol
 //----------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------
@@ -122,12 +124,12 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 
 //----------------------------------------------------------------------
 
-// Einfuegen der eigenen Include Dateien
+// Einfuegen der eigenen Include-Dateien
 //----------------------------------------------------------------------
 
 //----------------------------------------------------------------------
 
-// Definiere Debug Symbols
+// Definiere Debug-Symbole
 //----------------------------------------------------------------------
 #ifdef DEBUG
 	#define DEBUG_BEISPIEL
@@ -186,9 +188,12 @@ Reihenfolge der Abschnitte:
 1. **Dateikopf**
 2. **Einfuegen der standard Include-Dateien**
 3. **Einfuegen der STM Include-Dateien**
-4. **Einfuegen der eigenen Include Dateien** – der eigene Header steht hier
-5. Variablen definieren – globale und `static` Variablen
-6. Funktionen – jede Funktion als eigener Abschnitt
+4. **Einfuegen der eigenen Include-Dateien** – der eigene Header steht hier
+5. **Variablen definieren** – globale und `static` Variablen (immer vorhanden, auch wenn leer)
+6. Variablen einbinden – optional, z. B. fuer Variablen, die im Header global (`extern`) bekannt gemacht werden; wird nur auf Schreibweise und Abschnittsform geprueft
+7. Funktionen – jede Funktion als eigener Abschnitt
+
+Die Reihenfolge wird geprueft (die erste Funktionsdefinition muss nach den Variablen-Abschnitten stehen).
 
 ### Funktionsabschnitt
 
@@ -201,6 +206,20 @@ Jede Funktion bekommt einen beschreibenden Kommentar als Abschnittsname und wird
 {
 	...
 }
+//----------------------------------------------------------------------
+```
+
+Wird die Funktion nur bedingt uebersetzt, steht `#if` / `#ifdef` zwischen Trennlinie und Funktionskopf:
+
+```c
+// Flash Page ermitteln
+//----------------------------------------------------------------------
+#ifdef FLASH_PAGE
+uint32_t GetPage (uint32_t address)
+{
+	...
+}
+#endif
 //----------------------------------------------------------------------
 ```
 
@@ -228,7 +247,7 @@ Jede Funktion bekommt einen beschreibenden Kommentar als Abschnittsname und wird
 #include "main.h"
 //----------------------------------------------------------------------
 
-// Einfuegen der eigenen Include Dateien
+// Einfuegen der eigenen Include-Dateien
 //----------------------------------------------------------------------
 #include "beispiel.h"
 //----------------------------------------------------------------------
@@ -327,6 +346,20 @@ else
 ### `switch` / `case`
 
 - Jeder `case` und `default` bekommt einen eigenen `{ }`-Block.
+- Ausnahme: Besteht ein `case` oder `default` nur aus einem einzelnen `return ...;` oder `break;`, sind keine Klammern noetig (wie bei `if`):
+  ```c
+  switch (state)
+  {
+  	case STATE_OK:
+  		return "OK";
+  	case STATE_ERROR:
+  		return "Error";
+  	case STATE_IDLE:
+  		break;
+  	default:
+  		return "Unbekannt";
+  }
+  ```
 - Mehrere `case`-Marken mit gleichem Code stehen direkt untereinander; nur die **letzte** Marke bekommt den `{ }`-Block.
 - `break;` steht **innerhalb** des Blocks.
 - `default` ist immer vorhanden.
@@ -417,6 +450,7 @@ py tools/c_stylecheck.py -s                       # nur Zusammenfassung
 py tools/c_stylecheck.py ../EAuto_BMS -x openblt  # zusaetzlich Pfade ausschliessen (Regex)
 py tools/c_stylecheck.py -r                       # je Projekt Report nach reports/<JJJJMMTT>_<Projekt>.txt
 py tools/c_stylecheck.py "../EAuto_*" -r          # Reports fuer andere Ordner
+py tools/c_stylecheck.py -r -f                    # Reports nur fuer Projekte mit Befunden
 ```
 
 Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Der Dateiname beginnt mit dem Datum (z. B. `20261008_STM32_Canbus.txt`); ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten. Der Ordner `reports/` steht in der `.gitignore`.
@@ -430,6 +464,7 @@ HAL-, CMSIS-, Startup- und von STM32CubeMX generierte Dateien (`USER CODE BEGIN`
 - [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Version, Autor, Projekt, Quelle)
 - [ ] Alle Pflichtabschnitte vorhanden und in der richtigen Reihenfolge
 - [ ] Leere Include-Abschnitte trotzdem angelegt
+- [ ] `.c`: Abschnitt `Variablen definieren` vorhanden (auch wenn leer)
 - [ ] `.h`: `#pragma once` **und** Include-Guard `INC_<NAME>_H_`
 - [ ] `.h`: Versions-Defines vorhanden
 - [ ] Jede Funktion mit Beschreibungskommentar und Trennlinien
