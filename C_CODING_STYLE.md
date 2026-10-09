@@ -455,7 +455,21 @@ py tools/c_stylecheck.py -r -f                    # Reports nur fuer Projekte mi
 
 Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Der Dateiname beginnt mit dem Datum (z. B. `20261008_STM32_Canbus.txt`); ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten. Der Ordner `reports/` steht in der `.gitignore`.
 
-HAL-, CMSIS-, Startup- und von STM32CubeMX generierte Dateien (`USER CODE BEGIN`) werden automatisch uebersprungen; mit `--no-default-exclude` werden sie mitgeprueft. Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
+HAL-, CMSIS- und Startup-Dateien sowie Git-Submodule aus der `.gitmodules` des Projekts werden automatisch uebersprungen; Submodule sind eigene Repos und werden dort geprueft.
+
+Von STM32CubeMX generierte Dateien (z. B. unter `Core/`) werden nur zwischen `/* USER CODE BEGIN ... */` und `/* USER CODE END ... */` geprueft. Der Bereich `Header` (ST-Lizenzkopf) und die Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge) entfallen, fehlerhafte Marker werden gemeldet. Im Report sind diese Dateien mit `nur USER CODE` gekennzeichnet.
+
+Mit `--no-default-exclude` werden alle diese Dateien vollstaendig geprueft.
+
+Projektspezifische Einstellungen stehen optional in der Datei `.c_stylecheck` im Projektordner. Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
+
+```ini
+[stylecheck]
+exclude = Test, Application/Inc/git.h   # diese Ordner/Dateien zusaetzlich ausschliessen
+include = Core, Application   # nur diese Ordner pruefen
+```
+
+Die Datei wird nur angelegt, wenn die automatischen Ausschluesse nicht reichen. Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
 
 ---
 

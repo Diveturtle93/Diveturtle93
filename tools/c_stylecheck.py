@@ -21,24 +21,37 @@
 #   -q / --quiet         Dateien ohne Befund nicht anzeigen
 #   -s / --summary       nur Zusammenfassung je Kategorie
 #   -x / --exclude REGEX zusaetzliche Pfade ausschliessen (mehrfach moeglich)
-#   --no-default-exclude HAL/CMSIS/CubeMX-Dateien nicht automatisch ausschliessen
+#   --no-default-exclude HAL/CMSIS-Dateien und Submodule mitpruefen, CubeMX-Dateien vollstaendig pruefen
 #
 # Ein Projekt ist jeder Ordner, der als Pfad angegeben oder per Glob gefunden wird.
 #
 # Automatisch uebersprungen: Drivers/, Middlewares/, Debug/, Release/, build/,
-# HAL-/Startup-/System-Dateien sowie alle Dateien mit "USER CODE BEGIN" (CubeMX).
+# HAL-/Startup-/System-Dateien sowie Git-Submodule aus der .gitmodules des Projekts
+# (werden separat geprueft).
+#
+# Von STM32CubeMX generierte Dateien ("USER CODE BEGIN") werden nur zwischen
+# USER CODE BEGIN und USER CODE END geprueft, ohne den Bereich "Header" und ohne
+# Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Reihenfolge).
+#
+# Projekt-Einstellungen (optional): Datei .c_stylecheck im Projektordner
+#   [stylecheck]
+#   exclude = Lib, Test           -> diese Ordner zusaetzlich ausschliessen
+#   include = Core, Application   -> nur diese Ordner pruefen
+# Ordner oder Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt.
 #
 # Rueckgabewert: 0 = keine Befunde, 1 = Befunde vorhanden, 2 = keine Dateien gefunden
 # ----------------------------------------------------------------------
 
 import argparse
 import collections
+import configparser
 import datetime
 import glob
 import os
 import re
 import sys
 
+CONFIG_FILE = ".c_stylecheck"
 SEP = "//" + "-" * 70
 COMMENT_COL = 77
 TAB_WIDTH = 4
@@ -47,8 +60,7 @@ TAB_WIDTH = 4
 DEFAULT_EXCLUDE = [
     r"[\\/]\.git[\\/]",
     r"[\\/](Drivers|Middlewares|CMSIS|Debug|Release|build)[\\/]",
-    r"stm32\w*_hal",
-    r"stm32\w*_it\.[ch]$",
+    r"stm32\w*_hal(?!_msp\.c$)",
     r"system_stm32",
     r"startup_",
     r"syscalls\.c$",
@@ -67,6 +79,13 @@ VAR_SECTION = "// Variablen definieren"
 VAR_INC_SECTION = "// Variablen einbinden"
 HEAD_KEYS = ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
 KEYWORDS = {"if", "for", "while", "switch", "return", "sizeof", "else"}
+
+# CubeMX-Dateien: nur Bereiche zwischen USER CODE BEGIN/END pruefen
+USER_CODE = re.compile(r"^\s*/\*\s*USER CODE (BEGIN|END)\s+(.+?)\s*\*/\s*$")
+USER_CODE_SKIP = {"Header"}
+MARKER_CAT = "USER CODE Marker"
+# Pruefungen der Dateistruktur, im USER-CODE-Modus nicht sinnvoll
+FILE_CATS = {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge"}
 
 
 # Ein Befund: Zeile (0 = ganze Datei), Kategorie, Zusatzinfo
@@ -239,6 +258,30 @@ def order_anchors(L, is_header, guard, first_func):
     return anchors
 
 
+# Zeilenindizes innerhalb der USER CODE Bereiche (ohne Markerzeilen und USER_CODE_SKIP)
+# Rueckgabe: (Menge der Zeilenindizes, [Issue fuer fehlerhafte Marker])
+def user_code_lines(L):
+    active, markers, open_ = set(), [], None
+    for i, l in enumerate(L):
+        m = USER_CODE.match(l)
+        if not m:
+            if open_ and open_[1] not in USER_CODE_SKIP:
+                active.add(i)
+            continue
+        kind, name = m.groups()
+        if kind == "BEGIN":
+            if open_:
+                markers.append(Issue(i + 1, MARKER_CAT, f"BEGIN {name} vor END {open_[1]}"))
+            open_ = (i, name)
+        else:
+            if not open_ or open_[1] != name:
+                markers.append(Issue(i + 1, MARKER_CAT, f"END {name} ohne passendes BEGIN"))
+            open_ = None
+    if open_:
+        markers.append(Issue(open_[0] + 1, MARKER_CAT, f"BEGIN {open_[1]} ohne END"))
+    return active, markers
+
+
 # Basisnamen (klein) aller .c-Dateien unterhalb eines Ordners, inkl. ausgeschlossener
 def c_basenames(base):
     files = glob.glob(os.path.join(base, "**", "*.c"), recursive=True)
@@ -247,7 +290,8 @@ def c_basenames(base):
 
 # Eine Datei pruefen, Rueckgabe: Liste von Issue, sortiert nach Zeile
 # c_names: Basisnamen der .c-Dateien im Projekt (zusaetzlich: Ordner der Datei und ../Src)
-def check_file(path, c_names=None):
+# user_code: nur Zeilen zwischen USER CODE BEGIN/END pruefen (CubeMX-Dateien)
+def check_file(path, c_names=None, user_code=False):
     raw = open(path, "rb").read()
     issues = []
 
@@ -451,6 +495,12 @@ def check_file(path, c_names=None):
     # Reihenfolge der Abschnitte
     check_order(order_anchors(L, is_header, f"INC_{name}_H_", first_func), add)
 
+    # USER-CODE-Modus: Befunde nur aus den Bereichen, Zeilenende-Befund fuer die ganze Datei bleibt
+    if user_code:
+        active, markers = user_code_lines(L)
+        issues = [x for x in issues if x.cat not in FILE_CATS
+                  and ((x.line - 1) in active or (x.line == 0 and x.cat == "Zeilenende"))] + markers
+
     issues.sort(key=lambda x: x.line)
     return issues
 
@@ -467,8 +517,40 @@ def list_c_files(path):
     return sorted(glob.glob(os.path.join(path, "**", "*.[ch]"), recursive=True))
 
 
-# Pfade/Globs zu Projekten aufloesen: {Projektname: (Basisordner, [Dateien])}
-def collect_projects(targets, excludes, skip_generated=True):
+# Ordnerangabe vereinheitlichen: Schraegstriche, klein, ohne fuehrendes/abschliessendes /
+def norm_dir(d):
+    return d.strip().replace("\\", "/").strip("/").lower()
+
+
+# Projekt-Einstellungen: ([auszuschliessende Ordner], [zu pruefende Ordner]), relativ zum Projekt
+# submodules: Pfade aus .gitmodules ausschliessen
+def project_settings(base, submodules=True):
+    excl, incl = [], []
+    gitmodules = os.path.join(base, ".gitmodules")
+    if submodules and os.path.isfile(gitmodules):
+        with open(gitmodules, encoding="utf-8", errors="replace") as f:
+            excl += [m.group(1) for m in re.finditer(r"^\s*path\s*=\s*(.+?)\s*$", f.read(), re.M)]
+    cfg_path = os.path.join(base, CONFIG_FILE)
+    if os.path.isfile(cfg_path):
+        cfg = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
+        cfg.read(cfg_path, encoding="utf-8")
+        sec = cfg["stylecheck"] if cfg.has_section("stylecheck") else {}
+        for k in sec:
+            if k not in ("exclude", "include"):
+                print(f"Warnung: {cfg_path}: unbekannter Eintrag '{k}'", file=sys.stderr)
+        excl += sec.get("exclude", "").split(",")
+        incl += sec.get("include", "").split(",")
+    return [norm_dir(d) for d in excl if d.strip()], [norm_dir(d) for d in incl if d.strip()]
+
+
+# Liegt die Datei (relativ zum Projekt) in einem der Ordner?
+def in_dirs(rel, dirs):
+    return any(rel == d or rel.startswith(d + "/") for d in dirs)
+
+
+# Pfade/Globs zu Projekten aufloesen: {Projektname: (Basisordner, [(Datei, nur USER CODE)])}
+# defaults: Git-Submodule ueberspringen, CubeMX-Dateien nur in den USER CODE Bereichen pruefen
+def collect_projects(targets, excludes, defaults=True):
     projects = collections.OrderedDict()
     seen = set()
     for t in targets:
@@ -479,14 +561,19 @@ def collect_projects(targets, excludes, skip_generated=True):
             m = os.path.abspath(m)
             base = m if os.path.isdir(m) else os.path.dirname(m)
             proj = os.path.basename(base)
+            # Einstellungen nur fuer Projektordner, nicht fuer einzeln angegebene Dateien
+            excl_dirs, incl_dirs = project_settings(base, defaults) if os.path.isdir(m) else ([], [])
             for p in list_c_files(m):
                 p = os.path.abspath(p)
                 if p in seen or any(re.search(x, p, re.I) for x in excludes):
                     continue
-                if skip_generated and is_generated(p):
+                rel = norm_dir(os.path.relpath(p, base))
+                if in_dirs(rel, excl_dirs) or (incl_dirs and not in_dirs(rel, incl_dirs)):
                     continue
                 seen.add(p)
-                projects.setdefault(proj, (base, []))[1].append(p)
+                projects.setdefault(proj, (base, []))[1].append((p, defaults and is_generated(p)))
+            if os.path.isdir(m) and proj not in projects:
+                print(f"Hinweis: {proj}: keine Dateien zu pruefen", file=sys.stderr)
     return projects
 
 
@@ -496,8 +583,14 @@ def format_issue(issue):
     return f"  {where}  [{issue.cat}]{info}"
 
 
+# Ueberschrift je Datei, user_code: Dateien, die nur in den USER CODE Bereichen geprueft wurden
+def file_title(p, base, iss, user_code):
+    mode = ", nur USER CODE" if p in user_code else ""
+    return f"{os.path.relpath(p, base)}  ({len(iss)} Befunde{mode})"
+
+
 # Report-Text fuer ein Projekt erzeugen
-def build_report(proj, base, results):
+def build_report(proj, base, results, user_code=()):
     total = collections.Counter()
     count = sum(len(i) for _, i in results)
     clean = sum(1 for _, i in results if not i)
@@ -511,7 +604,7 @@ def build_report(proj, base, results):
     out.append(f"Ordner       : {base}")
     out.append(f"Erstellt     : {datetime.datetime.now():%d.%m.%Y %H:%M}")
     out.append(f"Regeln       : C_CODING_STYLE.md")
-    out.append(f"Geprueft     : {len(results)} Dateien, davon {clean} ohne Befund")
+    out.append(f"Geprueft     : {len(results)} Dateien, davon {clean} ohne Befund, {len(user_code)} nur USER CODE")
     out.append(f"Befunde      : {count}")
     out.append("=" * 72)
 
@@ -525,7 +618,7 @@ def build_report(proj, base, results):
     for p, iss in results:
         out.append("")
         out.append("-" * 72)
-        out.append(f"{os.path.relpath(p, base)}  ({len(iss)} Befunde)")
+        out.append(file_title(p, base, iss, user_code))
         out.append("-" * 72)
         if not iss:
             out.append("  keine Befunde")
@@ -551,7 +644,7 @@ def main():
     ap.add_argument("-q", "--quiet", action="store_true", help="Dateien ohne Befund nicht anzeigen")
     ap.add_argument("-s", "--summary", action="store_true", help="nur Zusammenfassung ausgeben")
     ap.add_argument("-x", "--exclude", action="append", default=[], metavar="REGEX", help="zusaetzlich ausschliessen")
-    ap.add_argument("--no-default-exclude", action="store_true", help="HAL/CMSIS/CubeMX-Dateien mitpruefen")
+    ap.add_argument("--no-default-exclude", action="store_true", help="HAL/CMSIS-Dateien und Submodule mitpruefen, CubeMX-Dateien vollstaendig pruefen")
     args = ap.parse_args()
 
     excludes = args.exclude + ([] if args.no_default_exclude else DEFAULT_EXCLUDE)
@@ -568,7 +661,8 @@ def main():
     n_files = n_clean = 0
     for proj, (base, files) in projects.items():
         c_names = c_basenames(base)
-        results = [(p, check_file(p, c_names)) for p in files]
+        results = [(p, check_file(p, c_names, uc)) for p, uc in files]
+        user_code = {p for p, uc in files if uc}
         n_files += len(results)
         n_clean += sum(1 for _, i in results if not i)
         for _, iss in results:
@@ -582,7 +676,7 @@ def main():
                 continue
             path = os.path.join(args.report, f"{date_prefix}_{proj}.txt")
             with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
-                f.write(build_report(proj, base, results))
+                f.write(build_report(proj, base, results, user_code))
             print(f"{proj:30} {n_issues:6} Befunde  -> {os.path.relpath(path)}")
             continue
 
@@ -591,7 +685,7 @@ def main():
         for p, iss in results:
             if args.quiet and not iss:
                 continue
-            print(f"\n### {proj}/{os.path.relpath(p, base)}  ({len(iss)} Befunde)")
+            print(f"\n### {proj}/{file_title(p, base, iss, user_code)}")
             for x in iss:
                 print(format_issue(x))
 
