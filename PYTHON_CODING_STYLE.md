@@ -2,7 +2,7 @@
 
 Verbindlicher Layout- und Formatierungsstandard fuer alle Python-Dateien (`.py`) in den Projekten von **Diveturtle93**.
 
-Der Standard uebertraegt den [C Coding Style](C_CODING_STYLE.md) auf Python: gleicher Dateikopf, gleiche Abschnitte, gleiche Trennlinien, gleiche Namensgebung. Wo Python andere Mittel hat (Bloecke durch Einrueckung, kein Praeprozessor), ist die naechstliegende Entsprechung festgelegt. Die bewussten Abweichungen von PEP 8 stehen in [Abschnitt 6](#6-abweichungen-von-pep-8).
+Der Standard uebertraegt den [C Coding Style](C_CODING_STYLE.md) auf Python. Alles, was in C Pflicht ist, ist auch hier Pflicht; die Abschnitte stehen in derselben Reihenfolge und sehen gleich aus. Wo Python andere Mittel hat (Bloecke durch Einrueckung, kein Praeprozessor, keine Deklarationen), ist die naechstliegende Entsprechung festgelegt. Die Gegenueberstellung steht in [Abschnitt 3](#3-moduldatei-py), die bewussten Abweichungen von PEP 8 in [Abschnitt 6](#6-abweichungen-von-pep-8).
 
 ---
 
@@ -10,19 +10,20 @@ Der Standard uebertraegt den [C Coding Style](C_CODING_STYLE.md) auf Python: gle
 
 | Regel | Festlegung |
 |---|---|
-| Einrueckung | **Tabs**, Tabbreite **4**, auch fuer Fortsetzungszeilen; Tabs und Leerzeichen nie mischen |
+| Einrueckung | **Tabs**, Tabbreite **4**, auch fuer Fortsetzungszeilen |
 | Zeilenende | CRLF |
 | Zeichensatz | reines ASCII – Umlaute werden als `ae`, `oe`, `ue`, `ss` geschrieben |
 | Sprache Kommentare | Deutsch |
 | Kommentarstil | nur `#`, nach `#` immer ein Leerzeichen |
-| Docstrings | **nicht** verwenden – die Beschreibung steht als Kommentar ueber Funktion, Methode bzw. Klasse (entspricht "kein Doxygen") |
-| Anweisungen | eine Anweisung pro Zeile, kein `;`, kein Rumpf hinter `:` in derselben Zeile |
+| Docstrings | **nicht** verwenden (entspricht "kein Doxygen") – die Beschreibung steht als Kommentar ueber Funktion, Methode bzw. Klasse |
+| Bloecke | Rumpf **immer** in eigener Zeile (entspricht Allman: jede `{` und `}` in eigener Zeile) |
+| Anweisungen | eine Anweisung pro Zeile, kein `;` |
 | Strings | doppelte Anfuehrungszeichen `"` (nicht geprueft) |
 | Python-Version | Python 3.10 oder neuer (`match` / `case`) |
 
 ### Trennlinie
 
-Die Trennlinie besteht aus `#` gefolgt von **71** Bindestrichen (72 Zeichen gesamt, wie in C). Sie steht immer in Spalte 1, auch direkt nach einem eingerueckten Block:
+Die Trennlinie besteht aus `#` gefolgt von **71** Bindestrichen (72 Zeichen gesamt, gleich lang wie in C). Sie steht immer in Spalte 1, auch direkt nach einem eingerueckten Block:
 
 ```python
 #-----------------------------------------------------------------------
@@ -40,7 +41,7 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 ```
 
 - Zwischen zwei Abschnitten steht genau **eine Leerzeile**.
-- Die drei Import-Abschnitte und `Variablen definieren` werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
+- Die Import-Abschnitte und `Variablen definieren` werden **immer** angelegt, auch wenn sie leer sind (dann steht eine Leerzeile zwischen den Linien).
 - Mehrere Klassen innerhalb eines Abschnitts (z. B. zusammengehoerige Enums) werden nur durch eine Trennlinie getrennt (ohne Leerzeile).
 
 ---
@@ -72,6 +73,8 @@ Jede Datei beginnt mit diesem Kopfblock. Zwischen Bezeichner und `:` sowie zwisc
 
 ## 3. Moduldatei (`.py`)
 
+Eine `.py`-Datei ist Header und Quelldatei zugleich. Die Abschnitte von `.h` und `.c` werden deshalb in einer Datei zusammengefasst, in derselben Reihenfolge wie in C.
+
 Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 
 1. **Dateikopf** – davor optional die Shebang-Zeile
@@ -79,17 +82,44 @@ Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 3. **Einfuegen der standard Module** – Standardbibliothek: `os`, `sys`, `threading`, …
 4. **Einfuegen der externen Module** – per `pip` installierte Pakete: `can`, `dash`, `plotly`, …
 5. **Einfuegen der eigenen Module** – Module und Pakete des Projekts, relative Importe
-6. Version definieren – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`
-7. Konstanten definieren
-8. Klassen – jede Klasse als eigener Abschnitt (Abschnittsname beschreibend, z. B. `Definiere Statemaschine Zustaende`)
-9. **Variablen definieren** – Modulvariablen (immer vorhanden, auch wenn leer). Der Abschnitt steht nach den Klassen, damit hier Instanzen angelegt werden koennen.
-10. Funktionen – jede Funktion als eigener Abschnitt
-11. Variablen einbinden – optional, Modulvariablen, die Funktionen dieses Moduls benoetigen (z. B. Zuordnungstabellen `{0x237: decode0x237}`)
-12. Hauptprogramm – `if __name__ == "__main__":`
+6. **Definiere Debug-Symbole** – `DEBUG_<NAME> = False`
+7. **Version definieren** – `<NAME>_MAJOR`, `_MINOR`, `_PATCH`, `_DEV`
+8. Konstanten definieren
+9. Klassen – jede Klasse als eigener Abschnitt (Abschnittsname beschreibend, z. B. `Definiere Statemaschine Typedefines`)
+10. **Variablen definieren** – Modulvariablen (immer vorhanden, auch wenn leer)
+11. Variablen einbinden – optional, Verweise auf Variablen anderer Module, z. B. `latest = state.latest`
+12. Funktionen – jede Funktion als eigener Abschnitt
+13. Funktionstabellen definieren – optional, Modulvariablen, die Funktionen dieses Moduls benoetigen (z. B. `{0x237: decode0x237}`); sie koennen erst nach den Funktionen stehen
+14. Hauptprogramm – optional, `if __name__ == "__main__":`
+15. **Abschluss** – die Datei endet mit einer Trennlinie
 
 Die Reihenfolge wird geprueft; optionale Abschnitte duerfen fehlen, die vorhandenen muessen aber in dieser Reihenfolge stehen.
 
-`<NAME>` ist der Dateiname in Grossbuchstaben ohne Endung (`can_bus.py` → `CAN_BUS_MAJOR`).
+`<NAME>` ist der Dateiname in Grossbuchstaben ohne Endung (`can_bus.py` → `DEBUG_CAN_BUS`, `CAN_BUS_MAJOR`), bei einem `__init__.py` mit Inhalt der Name des Pakets (`decoders/__init__.py` → `DEBUG_DECODERS`, `DECODERS_MAJOR`).
+
+Nicht benoetigte Debug-Symbole stehen auf `False` oder werden auskommentiert (`# DEBUG_<NAME> = True`); auch dann zaehlen sie als vorhanden.
+
+### Gegenueberstellung zu C
+
+| C (`.h` / `.c`) | Python | Pflicht |
+|---|---|---|
+| Dateikopf | Dateikopf | ja |
+| Sicherheitssymbol (`#pragma once`), Dateiheader definieren (Include-Guard) | entfaellt – Python laedt ein Modul nur einmal | – |
+| – | Beschreibung | nein (nur Python) |
+| Einfuegen der standard Include-Dateien | Einfuegen der standard Module | ja |
+| Einfuegen der STM Include-Dateien | Einfuegen der externen Module | ja |
+| Einfuegen der eigenen Include-Dateien | Einfuegen der eigenen Module | ja |
+| Definiere Debug-Symbole (Pflicht, wenn es eine `.c` gibt) | Definiere Debug-Symbole | ja (jede `.py` hat Code) |
+| Version definieren | Version definieren | ja |
+| Konstanten definieren | Konstanten definieren | nein |
+| Typedefs | Klassen | nein |
+| Definiere globale Variablen (`extern`) / Variablen definieren | Variablen definieren | ja |
+| Variablen einbinden | Variablen einbinden | nein |
+| Funktionen definieren (Prototypen) | entfaellt – Python braucht keine Deklarationen | – |
+| Funktionen | Funktionen | nein |
+| – | Funktionstabellen definieren | nein (nur Python) |
+| – | Hauptprogramm | nein (nur Python) |
+| Abschluss (`#endif` + Trennlinie) | Abschluss (Trennlinie) | ja |
 
 ### Imports
 
@@ -113,7 +143,7 @@ def <name> (<Parameter>):
 #-----------------------------------------------------------------------
 ```
 
-Dekoratoren stehen zwischen Trennlinie und Funktionskopf (wie `#if` in C):
+Dekoratoren stehen zwischen Trennlinie und Funktionskopf (wie `#if` / `#ifdef` in C):
 
 ```python
 # Wert zwischenspeichern
@@ -164,7 +194,7 @@ import threading
 
 # Einfuegen der externen Module
 #-----------------------------------------------------------------------
-import can
+
 #-----------------------------------------------------------------------
 
 # Einfuegen der eigenen Module
@@ -172,48 +202,54 @@ import can
 
 #-----------------------------------------------------------------------
 
+# Definiere Debug-Symbole
+#-----------------------------------------------------------------------
+DEBUG_BEISPIEL							= False
+#-----------------------------------------------------------------------
+
 # Version definieren
 #-----------------------------------------------------------------------
-BEISPIEL_MAJOR = 0
-BEISPIEL_MINOR = 0
-BEISPIEL_PATCH = 0
-BEISPIEL_DEV = 0
+BEISPIEL_MAJOR							= 0
+BEISPIEL_MINOR							= 0
+BEISPIEL_PATCH							= 0
+BEISPIEL_DEV							= 0
 #-----------------------------------------------------------------------
 
 # Konstanten definieren
 #-----------------------------------------------------------------------
-TIMEOUT = 1.0																# Timeout in s
+TIMEOUT									= 1000								# Timeout in ms
 #-----------------------------------------------------------------------
 
-# Definiere Beispiel Zustaende
+# Definiere Beispiel Typedefines
 #-----------------------------------------------------------------------
 class BeispielStates (enum.IntEnum):
 	Aus = 0																	# 0 Ausgeschaltet
 	An = 1																	# 1 Eingeschaltet
 #-----------------------------------------------------------------------
-
-# Speichert eine CAN-Nachricht
-#-----------------------------------------------------------------------
-class BeispielNachricht:
+class Beispiel_TypeDef:
 	# Objekt initialisieren
-	def __init__ (self, canId, data):
-		self.canId = canId													# Identifier
-		self.data = data													# Datenbytes
+	def __init__ (self):
+		self.id = 0															# Identifier
+		self.len = 0														# Datenlaenge
 #-----------------------------------------------------------------------
 
 # Variablen definieren
 #-----------------------------------------------------------------------
-mainBeispiel = BeispielNachricht(0, b"")									# Globale Beispiel-Variable
-lock = threading.Lock()														# Schutz fuer mainBeispiel
+Main_Beispiel = Beispiel_TypeDef()											# Globale Beispiel-Variable
+_zaehler = 0																# Interner Zaehler
+_lock = threading.Lock()													# Schutz fuer Main_Beispiel
 #-----------------------------------------------------------------------
 
 # Initialisiere Beispiel
 #-----------------------------------------------------------------------
 def initBeispiel ():
+	global _zaehler
+
 	# Variablen zuruecksetzen
-	with lock:
-		mainBeispiel.canId = 0
-		mainBeispiel.data = b""
+	with _lock:
+		Main_Beispiel.id = 0
+		Main_Beispiel.len = 0
+		_zaehler = 0
 #-----------------------------------------------------------------------
 
 # Gebe Wert anhand des Index zurueck
@@ -224,9 +260,7 @@ def getBeispiel (index):
 	# Index auswerten
 	match index:
 		case 0:
-			ret = len(mainBeispiel.data)
-		case 1 | 2:
-			ret = mainBeispiel.canId
+			ret = Main_Beispiel.len
 		case _:
 			pass
 
@@ -247,7 +281,9 @@ if __name__ == "__main__":
 
 ### Bloecke und Kontrollstrukturen
 
-- Der Rumpf von `if`, `elif`, `else`, `for`, `while`, `with`, `try`, `except`, `finally`, `def`, `class`, `match` und `case` steht **immer** in einer eigenen Zeile – auch ein einzelnes `return` (in C sind dort die Klammern optional, die neue Zeile ist Pflicht):
+- Der Rumpf von `if`, `elif`, `else`, `for`, `while`, `with`, `try`, `except`, `finally`, `def`, `class`, `match` und `case` steht **immer** in einer eigenen Zeile.
+- Nach Schluesselwoertern ein Leerzeichen, wenn eine Klammer folgt: `if (a or b) and c:`, nicht `if(a or b) and c:`. Ohne Klammer: `if canIsActive:` (keine Klammern um einfache Bedingungen).
+- Folgt nur ein einzelnes `return`, steht es wie in C eingerueckt in der naechsten Zeile:
   ```python
   # Beende wenn CAN-Bus aktiv ist
   if canIsActive:
@@ -259,43 +295,45 @@ if __name__ == "__main__":
   else:
   	return rxRing.size - (rxRing.tail - rxRing.head)
   ```
-- Keine Klammern um Bedingungen: `if canIsActive:`, nicht `if (canIsActive):` (nicht geprueft).
 - Leerer Rumpf: `pass`.
-- Ein Kommentar zu einem `elif`- oder `else`-Zweig steht direkt in der Zeile ueber dem `elif` / `else`, eingerueckt wie das `elif` / `else`.
+- Ein Kommentar zu einem `elif`- oder `else`-Zweig steht direkt in der Zeile ueber dem `elif` / `else`.
 
 ```python
 # CAN-Nachricht hat extended ID
-if msg.isExtendedId:
-	header.ide = CAN_ID_EXT
+if msg.flags.extended == 1:
+	header.IDE = CAN_ID_EXT
 # CAN-Nachricht hat standard ID
 else:
-	header.ide = CAN_ID_STD
+	header.IDE = CAN_ID_STD
 ```
 
 ### `match` / `case`
 
 `match` / `case` ist das Gegenstueck zu `switch` / `case`.
 
-- `case _:` (Standardzweig, entspricht `default`) ist **immer** vorhanden und steht als letzter Zweig.
-- Mehrere Werte mit gleichem Code werden mit `|` zusammengefasst: `case 1 | 2:`.
-- Ein Durchfallen wie in C gibt es nicht; ein `break` wird nicht benoetigt.
+- Jeder `case` steht in eigener Zeile, der Code darunter eingerueckt.
+- Mehrere Werte mit gleichem Code werden mit `|` zusammengefasst: `case 1 | 2:` (entspricht mehreren `case`-Marken untereinander).
+- `case _:` (entspricht `default`) ist **immer** vorhanden und steht als letzter Zweig.
+- Ein Durchfallen wie in C gibt es nicht; `break` und die Markierung `fall through` entfallen.
 - Ein leerer Zweig enthaelt `pass`.
 
 ```python
-match state:
-	case States.Ok:
-		return "OK"
-	case States.Error | States.Timeout:
-		return "Error"
+match wert:
+	case 1 | 2:
+		# Gemeinsamer Code fuer 1 und 2
+		verarbeiten()
+	case 3:
+		# Code fuer 3
+		return "Drei"
 	case _:
-		return "Unbekannt"
+		pass
 ```
 
-### Funktionen und Klassen
+### Funktionen
 
-- Definition: Leerzeichen zwischen Name und Klammer – `def setState (state):`, `class CanManager (Base):`.
+- Definition: Leerzeichen zwischen Name und Klammer – `def setState (state):`, auch bei Klassen mit Basisklasse: `class CanManager (Base):`.
 - Aufrufe ohne Leerzeichen – `setState(Ready)`, `time.time()`.
-- Keine Parameter → `def initBeispiel ():`
+- Keine Parameter → `def initBeispiel ():` (entspricht `(void)`).
 - Typ-Annotationen sind erlaubt: `def send (self, canId: int, data: bytes) -> bool:`.
 
 ### Kommentare
@@ -310,10 +348,16 @@ match state:
 - Vor `return` darf zur Trennung eine Leerzeile stehen.
 - Zwischen Methoden einer Klasse eine Leerzeile.
 
-### Konstanten
+### Konstanten (entspricht `#define`)
 
-- Name in `GROSSBUCHSTABEN` mit `_`, je ein Leerzeichen um `=`.
-- Zusammengehoerige Werte (Listen, Dictionaries) stehen ein Eintrag pro Zeile, mit Tab eingerueckt.
+- Werte einer Gruppe stehen per Tabs ausgerichtet untereinander: zwischen Name und `=` stehen Tabs bis **Spalte 41** (dort stehen in C die Werte der `#define`), nach `=` ein Leerzeichen.
+- Name in `GROSSBUCHSTABEN` mit `_`.
+- Gilt fuer `Definiere Debug-Symbole`, `Version definieren` und `Konstanten definieren` (nicht geprueft, wie in C).
+
+```python
+TIMEOUT									= 1000								# Timeout in ms
+RX_BUFFER_SIZE							= 64								# Groesse Empfangspuffer
+```
 
 ---
 
@@ -323,17 +367,18 @@ match state:
 |---|---|---|
 | Dateien / Module | Kleinbuchstaben, `_` als Trenner | `can_bus.py`, `cell_voltages.py` |
 | Pakete (Ordner) | Kleinbuchstaben | `decoders`, `callbacks` |
+| Debug-Symbol | `DEBUG_<DATEI>` | `DEBUG_CAN_BUS` |
 | Versions-Konstanten | `<DATEI>_MAJOR/_MINOR/_PATCH/_DEV` | `CAN_BUS_MAJOR` |
-| Konstanten | `GROSSBUCHSTABEN` | `BACKOFF_MAX` |
-| Funktionen / Methoden | camelCase | `canRxThread`, `getBeispiel` |
-| Variablen / Parameter / Attribute | camelCase | `rxTs`, `stopEvent`, `self.canId` |
-| Globale Instanzen | camelCase, `main<Name>` bzw. `<modul><Name>` | `mainStatemaschine`, `canManager` |
-| Klassen | PascalCase | `CanManager`, `CanConfig` |
+| Konstanten | `GROSSBUCHSTABEN` | `ERROR_RESET` |
+| Funktionen / Methoden | camelCase, Modul-Praefix erlaubt | `setState`, `CANwrite` |
+| Variablen / Parameter / Attribute | camelCase | `sizeRxBuffer`, `timeError` |
+| Globale Instanzen | `Main_<Name>` bzw. `<Modul>_<Name>` | `Main_Statemaschine`, `CAN_Manager` |
+| Klassen | PascalCase, `<Name>_TypeDef` / `<Name>TypeDef` erlaubt | `CanManager`, `CAN_PaketTypeDef` |
 | Enum-Werte | PascalCase oder `GROSS_MIT_UNTERSTRICH` | `ReadyToDrive`, `RX_SIZE_8` |
 | Modulintern | fuehrender `_` | `_unpack`, `_BACKOFF_MAX` |
 | Spezialmethoden | unveraendert | `__init__`, `__str__` |
 
-Geprueft werden die Namen von Funktionen, Methoden und Klassen. Methoden, deren Name von einer fremden Bibliothek vorgegeben ist (z. B. `do_GET`), werden gemeldet und koennen ignoriert werden.
+Geprueft werden die Namen von Funktionen, Methoden und Klassen (kein `snake_case`). Methoden, deren Name von einer fremden Bibliothek vorgegeben ist (z. B. `do_GET`), werden gemeldet und koennen ignoriert werden.
 
 ---
 
@@ -349,8 +394,9 @@ Damit C- und Python-Code im selben Projekt gleich aussehen, weicht dieser Standa
 | 2 Leerzeilen zwischen Funktionen/Klassen | 1 Leerzeile + Abschnitt mit Trennlinien |
 | Docstrings | Kommentar ueber der Definition |
 | Zeilenkommentar mit 2 Leerzeichen | Tabs bis Spalte 77 |
+| `NAME = wert` | `NAME<Tabs>= wert`, `=` auf Spalte 41 |
 
-Linter wie `flake8` oder `pylint` melden diese Punkte; dort die Regeln `W191`, `E101`, `E211`, `E302`, `E305`, `N802`, `N803`, `N806` bzw. `C0103` und `C0114`–`C0116` abschalten.
+Linter wie `flake8` oder `pylint` melden diese Punkte; dort die Regeln `W191`, `E101`, `E211`, `E221`, `E302`, `E305`, `N802`, `N803`, `N806` bzw. `C0103` und `C0114`–`C0116` abschalten.
 
 ---
 
@@ -376,11 +422,14 @@ Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` 
 
 Ordner ohne `.py`-Dateien werden beim Standardaufruf (alle Ordner neben diesem Repo) stillschweigend uebersprungen. Virtuelle Umgebungen (`venv`, `.venv`, `env`), `__pycache__`, `build`, `dist`, `site-packages` sowie Git-Submodule aus der `.gitmodules` des Projekts werden automatisch uebersprungen. Mit `--no-default-exclude` werden sie mitgeprueft.
 
-Projektspezifische Einstellungen stehen optional in der Datei `.py_stylecheck` im Projektordner (gleicher Aufbau wie `.c_stylecheck`). Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
+Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im Projektordner, gemeinsam mit `c_stylecheck.py`: `[stylecheck]` gilt fuer beide Sprachen, `[py]` nur fuer Python und ergaenzt `[stylecheck]` (siehe C-Standard). Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
 
 ```ini
 [stylecheck]
-exclude = openblt, Test   # diese Ordner/Dateien zusaetzlich ausschliessen (z. B. fremde Bibliotheken)
+exclude = Test            # fuer C und Python ausschliessen
+
+[py]
+exclude = openblt         # nur fuer Python zusaetzlich ausschliessen (z. B. fremde Bibliotheken)
 include = backend, ui     # nur diese Ordner pruefen
 ```
 
@@ -392,11 +441,13 @@ Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
 
 - [ ] Dateikopf vollstaendig (Titel, Sprache, Datum, Version, Autor, Projekt, Quelle)
 - [ ] Alle Pflichtabschnitte vorhanden und in der richtigen Reihenfolge
-- [ ] Leere Import-Abschnitte trotzdem angelegt, `Variablen definieren` vorhanden (auch wenn leer)
-- [ ] Jeder Import im passenden Abschnitt, ein Modul pro `import`-Zeile, kein `import *`
-- [ ] Jede Funktion und Klasse mit Beschreibungskommentar und Trennlinien
-- [ ] Jede Methode mit Kommentar direkt darueber
-- [ ] Tabs statt Leerzeichen, CRLF, Rumpf immer in eigener Zeile, kein `;`
-- [ ] `def name (...)` mit Leerzeichen, Namen in camelCase bzw. PascalCase
-- [ ] `match` immer mit `case _:`
-- [ ] Kommentare deutsch, ohne Umlaute, keine Docstrings
+- [ ] Leere Import-Abschnitte trotzdem angelegt
+- [ ] Abschnitt `Variablen definieren` vorhanden (auch wenn leer)
+- [ ] `Definiere Debug-Symbole` mit `DEBUG_<NAME>` vorhanden
+- [ ] Versions-Konstanten vorhanden
+- [ ] Datei endet mit Trennlinie
+- [ ] Jede Funktion und Klasse mit Beschreibungskommentar und Trennlinien, jede Methode mit Kommentar darueber
+- [ ] Tabs statt Leerzeichen, Rumpf immer in eigener Zeile
+- [ ] `match` mit `case _:`
+- [ ] Kommentare deutsch, ohne Umlaute
+- [ ] Keine Docstrings, kein `;`, kein `import *`

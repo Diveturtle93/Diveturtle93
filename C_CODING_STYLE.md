@@ -464,13 +464,21 @@ Von STM32CubeMX generierte Dateien (z. B. unter `Core/`) werden nur zwischen `/*
 
 Mit `--no-default-exclude` werden alle diese Dateien vollstaendig geprueft.
 
-Projektspezifische Einstellungen stehen optional in der Datei `.c_stylecheck` im Projektordner. Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
+Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im Projektordner. Sie wird von `c_stylecheck.py` und `py_stylecheck.py` gemeinsam genutzt: `[stylecheck]` gilt fuer beide Sprachen, `[c]` bzw. `[py]` nur fuer die jeweilige Sprache und ergaenzt `[stylecheck]`. Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
 
 ```ini
 [stylecheck]
-exclude = Test, Application/Inc/git.h   # diese Ordner/Dateien zusaetzlich ausschliessen
-include = Core, Application   # nur diese Ordner pruefen
+exclude = Test                  # fuer C und Python ausschliessen
+
+[c]
+exclude = Application/Inc/git.h # nur fuer C zusaetzlich ausschliessen
+include = Core, Application     # nur diese Ordner pruefen
+
+[py]
+exclude = openblt               # nur fuer Python zusaetzlich ausschliessen
 ```
+
+Die frueheren Dateien `.c_stylecheck` und `.py_stylecheck` werden nicht mehr gelesen; liegen sie noch im Projekt, gibt das Skript eine Warnung aus.
 
 Die Datei wird nur angelegt, wenn die automatischen Ausschluesse nicht reichen. Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
 

@@ -43,9 +43,10 @@
 # USER CODE BEGIN und USER CODE END geprueft, ohne den Bereich "Header" und ohne
 # Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Reihenfolge).
 #
-# Projekt-Einstellungen (optional): Datei .c_stylecheck im Projektordner
-#   [stylecheck]
+# Projekt-Einstellungen (optional): Datei .stylecheck im Projektordner (gemeinsam mit py_stylecheck.py)
+#   [stylecheck]                  -> gilt fuer C und Python
 #   exclude = Lib, Test           -> diese Ordner zusaetzlich ausschliessen
+#   [c]                           -> gilt nur fuer C, ergaenzt [stylecheck]
 #   include = Core, Application   -> nur diese Ordner pruefen
 # Ordner oder Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt.
 #
@@ -74,15 +75,30 @@ import sys
 
 #-----------------------------------------------------------------------
 
+# Definiere Debug-Symbole
+#-----------------------------------------------------------------------
+DEBUG_C_STYLECHECK						= False
+#-----------------------------------------------------------------------
+
+# Version definieren
+#-----------------------------------------------------------------------
+C_STYLECHECK_MAJOR						= 1
+C_STYLECHECK_MINOR						= 0
+C_STYLECHECK_PATCH						= 0
+C_STYLECHECK_DEV						= 0
+#-----------------------------------------------------------------------
+
 # Konstanten definieren
 #-----------------------------------------------------------------------
-CONFIG_FILE = ".c_stylecheck"												# Projekt-Einstellungen
-SEP = "//" + "-" * 70														# Trennlinie, 72 Zeichen
-COMMENT_COL = 77															# Spalte der Zeilenkommentare
-TAB_WIDTH = 4																# Tabbreite
+CONFIG_FILE								= ".stylecheck"						# Projekt-Einstellungen (C und Python)
+CONFIG_SECTIONS							= ("stylecheck", "c", "py")			# [stylecheck] gilt fuer beide Sprachen
+LEGACY_CONFIG_FILES						= (".c_stylecheck", ".py_stylecheck")	# alte Dateinamen, nur noch Warnung
+SEP										= "//" + "-" * 70					# Trennlinie, 72 Zeichen
+COMMENT_COL								= 77								# Spalte der Zeilenkommentare
+TAB_WIDTH								= 4									# Tabbreite
 
 # Generierte bzw. fremde Dateien (STM32CubeMX, HAL, CMSIS, Build-Ausgaben)
-DEFAULT_EXCLUDE = [
+DEFAULT_EXCLUDE							= [
 	r"[\\/]\.git[\\/]",
 	r"[\\/](Drivers|Middlewares|CMSIS|Debug|Release|build)[\\/]",
 	r"stm32\w*_hal(?!_msp\.c$)",
@@ -92,31 +108,31 @@ DEFAULT_EXCLUDE = [
 	r"sysmem\.c$",
 ]
 
-INC_SECTIONS = [
+INC_SECTIONS							= [
 	"// Einfuegen der standard Include-Dateien",
 	"// Einfuegen der STM Include-Dateien",
 	"// Einfuegen der eigenen Include-Dateien",
 ]
-GUARD_SECTION = "// Sicherheitssymbol"
-DEBUG_SECTION = "// Definiere Debug-Symbole"
-DEBUG_NAME = re.compile(r"//\s*\w+\s+Debug[\s-]*Symbol", re.I)
-VAR_SECTION = "// Variablen definieren"
-VAR_INC_SECTION = "// Variablen einbinden"
-HEAD_KEYS = ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
-KEYWORDS = {"if", "for", "while", "switch", "return", "sizeof", "else"}
+GUARD_SECTION							= "// Sicherheitssymbol"
+DEBUG_SECTION							= "// Definiere Debug-Symbole"
+DEBUG_NAME								= re.compile(r"//\s*\w+\s+Debug[\s-]*Symbol", re.I)
+VAR_SECTION								= "// Variablen definieren"
+VAR_INC_SECTION							= "// Variablen einbinden"
+HEAD_KEYS								= ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
+KEYWORDS								= {"if", "for", "while", "switch", "return", "sizeof", "else"}
 
 # CubeMX-Dateien: nur Bereiche zwischen USER CODE BEGIN/END pruefen
-USER_CODE = re.compile(r"^\s*/\*\s*USER CODE (BEGIN|END)\s+(.+?)\s*\*/\s*$")
-USER_CODE_SKIP = {"Header"}
-MARKER_CAT = "USER CODE Marker"
+USER_CODE								= re.compile(r"^\s*/\*\s*USER CODE (BEGIN|END)\s+(.+?)\s*\*/\s*$")
+USER_CODE_SKIP							= {"Header"}
+MARKER_CAT								= "USER CODE Marker"
 
 # Pruefungen der Dateistruktur, im USER-CODE-Modus nicht sinnvoll
-FILE_CATS = {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge"}
+FILE_CATS								= {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge"}
 
 # switch/case: Fall-through-Markierung, Blockende, case-Marke
-FALLTHROUGH = re.compile(r"^\s*(//\s*fall(s)?[ -]?thr(ough|u)\b.*|__attribute__\s*\(\(\s*fallthrough\s*\)\)\s*;.*|\[\[fallthrough\]\]\s*;.*)$", re.I)
-TERMINATOR = re.compile(r"^\s*(break|continue|return\b.*|goto\s+\w+)\s*;$")
-LABEL = re.compile(r"^\s*(case\b.*|default\s*):\s*$")
+FALLTHROUGH								= re.compile(r"^\s*(//\s*fall(s)?[ -]?thr(ough|u)\b.*|__attribute__\s*\(\(\s*fallthrough\s*\)\)\s*;.*|\[\[fallthrough\]\]\s*;.*)$", re.I)
+TERMINATOR								= re.compile(r"^\s*(break|continue|return\b.*|goto\s+\w+)\s*;$")
+LABEL									= re.compile(r"^\s*(case\b.*|default\s*):\s*$")
 #-----------------------------------------------------------------------
 
 # Ein Befund: Zeile (0 = ganze Datei), Kategorie, Zusatzinfo
@@ -606,8 +622,9 @@ def normDir (d):
 
 # Projekt-Einstellungen: ([auszuschliessende Ordner], [zu pruefende Ordner]), relativ zum Projekt
 # submodules: Pfade aus .gitmodules ausschliessen
+# lang: Sprachabschnitt der Einstellungsdatei ("c" oder "py"), ergaenzt [stylecheck]
 #-----------------------------------------------------------------------
-def projectSettings (base, submodules=True):
+def projectSettings (base, submodules=True, lang="c"):
 	excl = []
 	incl = []
 	gitmodules = os.path.join(base, ".gitmodules")
@@ -615,16 +632,26 @@ def projectSettings (base, submodules=True):
 		with open(gitmodules, encoding="utf-8", errors="replace") as f:
 			excl += [m.group(1) for m in re.finditer(r"^\s*path\s*=\s*(.+?)\s*$", f.read(), re.M)]
 
+	for old in LEGACY_CONFIG_FILES:
+		if os.path.isfile(os.path.join(base, old)):
+			print(f"Warnung: {os.path.join(base, old)} wird nicht mehr gelesen, Einstellungen nach {CONFIG_FILE} verschieben", file=sys.stderr)
+
 	cfgPath = os.path.join(base, CONFIG_FILE)
 	if os.path.isfile(cfgPath):
 		cfg = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
-		cfg.read(cfgPath, encoding="utf-8")
-		sec = cfg["stylecheck"] if cfg.has_section("stylecheck") else {}
-		for k in sec:
-			if k not in ("exclude", "include"):
-				print(f"Warnung: {cfgPath}: unbekannter Eintrag '{k}'", file=sys.stderr)
-		excl += sec.get("exclude", "").split(",")
-		incl += sec.get("include", "").split(",")
+		cfg.read(cfgPath, encoding="utf-8-sig")								# BOM von Windows-Editoren erlauben
+		for name in cfg.sections():
+			if name not in CONFIG_SECTIONS:
+				print(f"Warnung: {cfgPath}: unbekannter Abschnitt '[{name}]'", file=sys.stderr)
+		for name in ("stylecheck", lang):
+			if not cfg.has_section(name):
+				continue
+			sec = cfg[name]
+			for k in sec:
+				if k not in ("exclude", "include"):
+					print(f"Warnung: {cfgPath}: unbekannter Eintrag '{k}' in [{name}]", file=sys.stderr)
+			excl += sec.get("exclude", "").split(",")
+			incl += sec.get("include", "").split(",")
 	return [normDir(d) for d in excl if d.strip()], [normDir(d) for d in incl if d.strip()]
 #-----------------------------------------------------------------------
 

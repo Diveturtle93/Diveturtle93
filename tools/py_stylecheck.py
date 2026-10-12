@@ -20,6 +20,7 @@
 #   py tools/py_stylecheck.py tools/py_stylecheck.py   -> einzelne Datei
 #   py tools/py_stylecheck.py -r                   -> Reports nach reports/<JJJJMMTT>_<Projekt>_py.txt
 #   py tools/py_stylecheck.py -c                   -> alle Python-Reports in reports/ loeschen
+#
 # Optionen:
 #   -r / --report [DIR]  je Projekt einen Report <JJJJMMTT>_<Projekt>_py.txt schreiben (Standard: reports/)
 #   -f / --findings-only mit -r nur Reports fuer Projekte mit Befunden schreiben
@@ -29,10 +30,13 @@
 #   -s / --summary       nur Zusammenfassung je Kategorie
 #   -x / --exclude REGEX zusaetzliche Pfade ausschliessen (mehrfach moeglich)
 #   --no-default-exclude virtuelle Umgebungen, Caches, Build-Ordner und Submodule mitpruefen
-# Projekt-Einstellungen (optional): Datei .py_stylecheck im Projektordner
-#   [stylecheck]
+#
+# Projekt-Einstellungen (optional): Datei .stylecheck im Projektordner (gemeinsam mit c_stylecheck.py)
+#   [stylecheck]                  -> gilt fuer C und Python
 #   exclude = openblt, Test       -> diese Ordner/Dateien zusaetzlich ausschliessen
+#   [py]                          -> gilt nur fuer Python, ergaenzt [stylecheck]
 #   include = backend, ui         -> nur diese Ordner pruefen
+#
 # Rueckgabewert: 0 = keine Befunde, 1 = Befunde vorhanden, 2 = keine Dateien gefunden
 #-----------------------------------------------------------------------
 
@@ -41,7 +45,6 @@
 import argparse
 import ast
 import collections
-import configparser
 import datetime
 import glob
 import io
@@ -58,67 +61,81 @@ import tokenize
 
 # Einfuegen der eigenen Module
 #-----------------------------------------------------------------------
-from c_stylecheck import Issue, checkOrder, formatIssue, inDirs, normDir, tabcol
+from c_stylecheck import Issue, checkOrder, formatIssue, inDirs, normDir, projectSettings, tabcol
+#-----------------------------------------------------------------------
+
+# Definiere Debug-Symbole
+#-----------------------------------------------------------------------
+DEBUG_PY_STYLECHECK						= False
 #-----------------------------------------------------------------------
 
 # Version definieren
 #-----------------------------------------------------------------------
-PY_STYLECHECK_MAJOR = 1
-PY_STYLECHECK_MINOR = 0
-PY_STYLECHECK_PATCH = 0
-PY_STYLECHECK_DEV = 0
+PY_STYLECHECK_MAJOR						= 1
+PY_STYLECHECK_MINOR						= 0
+PY_STYLECHECK_PATCH						= 0
+PY_STYLECHECK_DEV						= 0
 #-----------------------------------------------------------------------
 
 # Konstanten definieren
 #-----------------------------------------------------------------------
-CONFIG_FILE = ".py_stylecheck"												# Projekt-Einstellungen
-SEP = "#" + "-" * 71														# Trennlinie, 72 Zeichen
-COMMENT_COL = 77															# Spalte der Zeilenkommentare
-REPORT_SUFFIX = "_py"														# <JJJJMMTT>_<Projekt>_py.txt
+SEP										= "#" + "-" * 71					# Trennlinie, 72 Zeichen
+COMMENT_COL								= 77								# Spalte der Zeilenkommentare
+REPORT_SUFFIX							= "_py"								# <JJJJMMTT>_<Projekt>_py.txt
 
 # Virtuelle Umgebungen, Caches und Build-Ausgaben
-DEFAULT_EXCLUDE = [
+DEFAULT_EXCLUDE							= [
 	r"[\\/](\.git|\.venv|venv|env|__pycache__|\.tox|\.mypy_cache|\.pytest_cache|build|dist|site-packages|node_modules)[\\/]",
 ]
 
-IMPORT_SECTIONS = {
+IMPORT_SECTIONS							= {
 	"standard": "# Einfuegen der standard Module",
 	"extern": "# Einfuegen der externen Module",
 	"eigene": "# Einfuegen der eigenen Module",
 }
-DESC_SECTION = "# Beschreibung"
-VERSION_SECTION = "# Version definieren"
-CONST_SECTION = "# Konstanten definieren"
-VAR_SECTION = "# Variablen definieren"
-VAR_INC_SECTION = "# Variablen einbinden"
-MAIN_SECTION = "# Hauptprogramm"
-HEAD_KEYS = ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
+DESC_SECTION							= "# Beschreibung"
+DEBUG_SECTION							= "# Definiere Debug-Symbole"
+DEBUG_NAME								= re.compile(r"#\s*\w+\s+Debug[\s-]*Symbol", re.I)
+VERSION_SECTION							= "# Version definieren"
+CONST_SECTION							= "# Konstanten definieren"
+VAR_SECTION								= "# Variablen definieren"
+VAR_INC_SECTION							= "# Variablen einbinden"
+TABLE_SECTION							= "# Funktionstabellen definieren"
+MAIN_SECTION							= "# Hauptprogramm"
+HEAD_KEYS								= ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
+VERSION_KEYS							= ["MAJOR", "MINOR", "PATCH", "DEV"]
 
-# Rang der Abschnitte fuer die Reihenfolgepruefung
-RANK_CLASS = 7
-RANK_FUNC = 9
-SECTION_RANKS = [
+# Rang der Abschnitte fuer die Reihenfolgepruefung, gleiche Reihenfolge wie C (.h + .c)
+RANK_CLASS								= 8
+RANK_FUNC								= 11
+SECTION_RANKS							= [
 	(DESC_SECTION, 1),
 	(IMPORT_SECTIONS["standard"], 2),
 	(IMPORT_SECTIONS["extern"], 3),
 	(IMPORT_SECTIONS["eigene"], 4),
-	(VERSION_SECTION, 5),
-	(CONST_SECTION, 6),
-	(VAR_SECTION, 8),
+	(DEBUG_SECTION, 5),
+	(VERSION_SECTION, 6),
+	(CONST_SECTION, 7),
+	(VAR_SECTION, 9),
 	(VAR_INC_SECTION, 10),
-	(MAIN_SECTION, 11),
+	(TABLE_SECTION, 12),
+	(MAIN_SECTION, 13),
 ]
 
 # Zeilen, die mit diesen Schluesselwoertern beginnen, enden mit ':' und einem Block
-COMPOUND = {"if", "elif", "else", "for", "while", "with", "try", "except", "finally", "def", "class", "async"}
-SOFT_COMPOUND = {"match", "case"}
-OPEN = {"(", "[", "{"}
-CLOSE = {")", "]", "}"}
-STRING_TOKENS = {tokenize.STRING} | {getattr(tokenize, n) for n in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, n)}
+COMPOUND								= {"if", "elif", "else", "for", "while", "with", "try", "except", "finally", "def", "class", "async"}
+SOFT_COMPOUND							= {"match", "case"}
+OPEN									= {"(", "[", "{"}
+CLOSE									= {")", "]", "}"}
+STRING_TOKENS							= {tokenize.STRING} | {getattr(tokenize, n) for n in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, n)}
 
-CAMEL = re.compile(r"^_*[a-z][a-zA-Z0-9]*$")
-PASCAL = re.compile(r"^_*[A-Z][a-zA-Z0-9]*$")
-DUNDER = re.compile(r"^__\w+__$")
+# Schluesselwoerter, nach denen vor "(" ein Leerzeichen steht
+SPACE_KEYWORDS							= {"if", "elif", "while", "for"}
+
+# Namen wie in C: Funktionen camelCase (Modul-Praefix erlaubt), Klassen PascalCase oder <Name>_TypeDef
+CAMEL									= re.compile(r"^_*[A-Za-z][a-zA-Z0-9]*$")
+PASCAL									= re.compile(r"^_*[A-Z][a-zA-Z0-9]*(_[A-Z][a-zA-Z0-9]*)*$")
+DUNDER									= re.compile(r"^__\w+__$")
 #-----------------------------------------------------------------------
 
 # Variablen definieren
@@ -248,14 +265,22 @@ def checkLogicalLine (toks, softLines, add):
 			return
 #-----------------------------------------------------------------------
 
-# Token pruefen: Semikolon, Bloecke in einer Zeile
+# Token pruefen: Semikolon, Leerzeichen nach Schluesselwort, Bloecke in einer Zeile
 #-----------------------------------------------------------------------
 def checkTokens (tokens, softLines, add):
 	skip = (tokenize.NL, tokenize.COMMENT, tokenize.INDENT, tokenize.DEDENT)
 	line = []
-	for t in tokens:
+	for k, t in enumerate(tokens):
 		if t.type == tokenize.OP and t.string == ";":
 			add(t.start[0], "Semikolon", short(t.line))
+
+		# "if(" statt "if (" (match nur, wenn es als Schluesselwort steht)
+		isKeyword = t.string in SPACE_KEYWORDS or (t.string == "match" and t.start[0] in softLines)
+		if t.type == tokenize.NAME and isKeyword and k + 1 < len(tokens):
+			nxt = tokens[k + 1]
+			if nxt.string == "(" and nxt.start == t.end:
+				add(t.start[0], "kein Leerzeichen nach Schluesselwort", short(t.line))
+
 		if t.type in (tokenize.NEWLINE, tokenize.ENDMARKER):
 			checkLogicalLine(line, softLines, add)
 			line = []
@@ -461,9 +486,55 @@ def checkSections (L, add):
 			checkSectionForm(L, i, add)
 
 	# Optionale Abschnitte mit festem Namen
-	for s in (DESC_SECTION, VERSION_SECTION, CONST_SECTION, MAIN_SECTION):
+	for s in (DESC_SECTION, VERSION_SECTION, CONST_SECTION, TABLE_SECTION, MAIN_SECTION):
 		if s in L:
 			checkSectionForm(L, L.index(s), add)
+
+	# Datei endet mit einer Trennlinie (wie der Abschluss einer .h-Datei)
+	tail = [(i, l) for i, l in enumerate(L) if l.strip()]
+	if tail and tail[-1][1] != SEP:
+		add(tail[-1][0] + 1, "Dateiende", "Datei endet nicht mit Trennlinie")
+#-----------------------------------------------------------------------
+
+# <NAME> fuer Debug-Symbol und Versions-Konstanten: Dateiname gross ohne Endung, bei __init__.py der Paketname
+#-----------------------------------------------------------------------
+def moduleName (path):
+	name = os.path.splitext(os.path.basename(path))[0]
+	if name == "__init__":
+		name = os.path.basename(os.path.dirname(os.path.abspath(path)))
+	return re.sub(r"\W", "_", name).upper()
+#-----------------------------------------------------------------------
+
+# Pflichtabschnitt "Definiere Debug-Symbole" mit DEBUG_<NAME> (auskommentiert zaehlt als vorhanden)
+#-----------------------------------------------------------------------
+def checkDebugSymbols (L, path, add):
+	name = moduleName(path)
+	for i, l in enumerate(L):
+		if DEBUG_NAME.match(l) and l != DEBUG_SECTION:
+			add(i + 1, "Abschnitte", f"Debug-Abschnitt heisst '{l.strip()}' statt '{DEBUG_SECTION[2:]}'")
+
+	pos = [i for i, l in enumerate(L) if l == DEBUG_SECTION or DEBUG_NAME.match(l)]
+	if not pos:
+		add(0, "Debug-Symbole", f"Abschnitt '{DEBUG_SECTION[2:]}' fehlt")
+		return
+
+	checkSectionForm(L, pos[0], add)
+	end = next((j for j in range(pos[0] + 2, len(L)) if L[j] == SEP), len(L))
+	sym = re.compile(rf"^(#\s*)?DEBUG_{name}\s*=")
+	if not any(sym.match(l) for l in L[pos[0] + 2:end]):
+		add(pos[0] + 1, "Debug-Symbole", f"'DEBUG_{name} = ...' fehlt")
+#-----------------------------------------------------------------------
+
+# Pflichtabschnitt "Version definieren" mit <NAME>_MAJOR/_MINOR/_PATCH/_DEV
+#-----------------------------------------------------------------------
+def checkVersion (L, path, add):
+	name = moduleName(path)
+	if VERSION_SECTION not in L:
+		add(0, "Version", f"Abschnitt '{VERSION_SECTION[2:]}' fehlt")
+
+	missing = [v for v in VERSION_KEYS if not any(re.match(rf"{name}_{v}\s*=", l) for l in L)]
+	if missing:
+		add(0, "Version", f"Versions-Konstanten fehlen: {', '.join(name + '_' + v for v in missing)}")
 #-----------------------------------------------------------------------
 
 # Eine Datei pruefen, Rueckgabe: Liste von Issue, sortiert nach Zeile
@@ -503,6 +574,8 @@ def checkFile (path, base):
 
 	checkHead(L, fname, add)
 	checkSections(L, add)
+	checkDebugSymbols(L, path, add)
+	checkVersion(L, path, add)
 
 	# Quelltext ohne CR auswerten
 	src = "\n".join(L)
@@ -544,30 +617,6 @@ def listPyFiles (path):
 	return sorted(glob.glob(os.path.join(path, "**", "*.py"), recursive=True))
 #-----------------------------------------------------------------------
 
-# Projekt-Einstellungen: ([auszuschliessende Ordner], [zu pruefende Ordner]), relativ zum Projekt
-# submodules: Pfade aus .gitmodules ausschliessen
-#-----------------------------------------------------------------------
-def projectSettings (base, submodules=True):
-	excl = []
-	incl = []
-	gitmodules = os.path.join(base, ".gitmodules")
-	if submodules and os.path.isfile(gitmodules):
-		with open(gitmodules, encoding="utf-8", errors="replace") as f:
-			excl += [m.group(1) for m in re.finditer(r"^\s*path\s*=\s*(.+?)\s*$", f.read(), re.M)]
-
-	cfgPath = os.path.join(base, CONFIG_FILE)
-	if os.path.isfile(cfgPath):
-		cfg = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
-		cfg.read(cfgPath, encoding="utf-8")
-		sec = cfg["stylecheck"] if cfg.has_section("stylecheck") else {}
-		for k in sec:
-			if k not in ("exclude", "include"):
-				print(f"Warnung: {cfgPath}: unbekannter Eintrag '{k}'", file=sys.stderr)
-		excl += sec.get("exclude", "").split(",")
-		incl += sec.get("include", "").split(",")
-	return [normDir(d) for d in excl if d.strip()], [normDir(d) for d in incl if d.strip()]
-#-----------------------------------------------------------------------
-
 # Pfade/Globs zu Projekten aufloesen: {Projektname: (Basisordner, [Datei])}
 # defaults: Git-Submodule ueberspringen, quiet: Ordner ohne .py-Dateien nicht melden
 #-----------------------------------------------------------------------
@@ -584,7 +633,7 @@ def collectProjects (targets, excludes, defaults=True, quiet=False):
 			proj = os.path.basename(base)
 
 			# Einstellungen nur fuer Projektordner, nicht fuer einzeln angegebene Dateien
-			exclDirs, inclDirs = projectSettings(base, defaults) if os.path.isdir(m) else ([], [])
+			exclDirs, inclDirs = projectSettings(base, defaults, "py") if os.path.isdir(m) else ([], [])
 			for p in listPyFiles(m):
 				p = os.path.abspath(p)
 				if p in seen or any(re.search(x, p, re.I) for x in excludes):
