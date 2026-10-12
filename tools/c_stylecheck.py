@@ -14,10 +14,14 @@
 #   py tools/c_stylecheck.py ../STM32_Millis/millis.h   -> einzelne Datei
 #   py tools/c_stylecheck.py -r                   -> Reports nach reports/<JJJJMMTT>_<Projekt>.txt
 #   py tools/c_stylecheck.py -r -f                -> Reports nur fuer Projekte mit Befunden
+#   py tools/c_stylecheck.py -c                   -> alle Reports in reports/ loeschen
+#   py tools/c_stylecheck.py -c out               -> alle Reports in out/ loeschen
 #
 # Optionen:
 #   -r / --report [DIR]  je Projekt einen Report <JJJJMMTT>_<Projekt>.txt schreiben (Standard: reports/)
 #   -f / --findings-only mit -r nur Reports fuer Projekte mit Befunden schreiben
+#   -c / --clean [DIR]   alle Reports <JJJJMMTT>_<Projekt>.txt im Ordner loeschen, egal welches
+#                        Projekt (Standard: reports/), mit -r werden danach neue Reports geschrieben
 #   -q / --quiet         Dateien ohne Befund nicht anzeigen
 #   -s / --summary       nur Zusammenfassung je Kategorie
 #   -x / --exclude REGEX zusaetzliche Pfade ausschliessen (mehrfach moeglich)
@@ -577,6 +581,22 @@ def collect_projects(targets, excludes, defaults=True):
     return projects
 
 
+# Alle Reports <JJJJMMTT>_<Projekt>.txt im Ordner loeschen, Rueckgabe: Anzahl
+def clean_reports(report_dir):
+    if not os.path.isdir(report_dir):
+        print(f"Hinweis: Report-Ordner '{report_dir}' nicht vorhanden", file=sys.stderr)
+        return 0
+    pattern = re.compile(r"^\d{8}_.+\.txt$", re.I)
+    count = 0
+    for f in sorted(os.listdir(report_dir)):
+        path = os.path.join(report_dir, f)
+        if pattern.match(f) and os.path.isfile(path):
+            os.remove(path)
+            print(f"geloescht: {os.path.relpath(path)}")
+            count += 1
+    return count
+
+
 def format_issue(issue):
     where = f"Z.{issue.line:5}" if issue.line else "Datei  "
     info = f"  ->  {issue.info}" if issue.info else ""
@@ -641,11 +661,18 @@ def main():
                     help=f"je Projekt Report <JJJJMMTT>_<Projekt>.txt schreiben (Standard: {default_reports})")
     ap.add_argument("-f", "--findings-only", action="store_true",
                     help="mit -r nur Reports fuer Projekte mit Befunden schreiben")
+    ap.add_argument("-c", "--clean", nargs="?", const=default_reports, metavar="DIR",
+                    help=f"alle Reports im Ordner loeschen (Standard: {default_reports}), mit -r danach neu schreiben")
     ap.add_argument("-q", "--quiet", action="store_true", help="Dateien ohne Befund nicht anzeigen")
     ap.add_argument("-s", "--summary", action="store_true", help="nur Zusammenfassung ausgeben")
     ap.add_argument("-x", "--exclude", action="append", default=[], metavar="REGEX", help="zusaetzlich ausschliessen")
     ap.add_argument("--no-default-exclude", action="store_true", help="HAL/CMSIS-Dateien und Submodule mitpruefen, CubeMX-Dateien vollstaendig pruefen")
     args = ap.parse_args()
+
+    if args.clean:
+        print(f"{clean_reports(args.clean)} Reports geloescht")
+        if not args.report:
+            return 0
 
     excludes = args.exclude + ([] if args.no_default_exclude else DEFAULT_EXCLUDE)
     projects = collect_projects(args.paths or [default_target], excludes, not args.no_default_exclude)

@@ -451,9 +451,12 @@ py tools/c_stylecheck.py ../EAuto_BMS -x openblt  # zusaetzlich Pfade ausschlies
 py tools/c_stylecheck.py -r                       # je Projekt Report nach reports/<JJJJMMTT>_<Projekt>.txt
 py tools/c_stylecheck.py "../EAuto_*" -r          # Reports fuer andere Ordner
 py tools/c_stylecheck.py -r -f                    # Reports nur fuer Projekte mit Befunden
+py tools/c_stylecheck.py -c                       # alle Reports in reports/ loeschen
+py tools/c_stylecheck.py -c out                   # alle Reports in out/ loeschen
+py tools/c_stylecheck.py -c -r                    # alte Reports loeschen, danach neu schreiben
 ```
 
-Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Der Dateiname beginnt mit dem Datum (z. B. `20261008_STM32_Canbus.txt`); ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten. Der Ordner `reports/` steht in der `.gitignore`.
+Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Der Dateiname beginnt mit dem Datum (z. B. `20261008_STM32_Canbus.txt`); ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten. Mit `-c` werden alle Reports (`<JJJJMMTT>_<Projekt>.txt`, jedes Datum, jedes Projekt) im Report-Ordner geloescht; andere Dateien bleiben erhalten. Der Ordner `reports/` steht in der `.gitignore`.
 
 HAL-, CMSIS- und Startup-Dateien sowie Git-Submodule aus der `.gitmodules` des Projekts werden automatisch uebersprungen; Submodule sind eigene Repos und werden dort geprueft.
 
