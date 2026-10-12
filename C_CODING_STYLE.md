@@ -441,7 +441,7 @@ switch (wert)
 Das Skript [tools/c_stylecheck.py](tools/c_stylecheck.py) prueft C-Dateien gegen diesen Standard (benoetigt Python 3, keine weiteren Pakete).
 
 ```sh
-py tools/c_stylecheck.py                          # alle Ordner ../STM32_* neben diesem Repo
+py tools/c_stylecheck.py                          # alle Ordner neben diesem Repo
 py tools/c_stylecheck.py ../STM32_Canbus          # ein Ordner
 py tools/c_stylecheck.py "../EAuto_*" ../IMD_*    # beliebige Ordner oder Glob-Muster
 py tools/c_stylecheck.py ../STM32_Millis/millis.h # eine Datei

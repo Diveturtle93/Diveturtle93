@@ -14,7 +14,7 @@
 #-----------------------------------------------------------------------
 # Prueft C-Dateien (.c/.h) gegen C_CODING_STYLE.md
 # Aufruf:
-#   py tools/c_stylecheck.py                      -> alle Ordner ../STM32_* neben diesem Repo
+#   py tools/c_stylecheck.py                      -> alle Ordner neben diesem Repo
 #   py tools/c_stylecheck.py ../STM32_Canbus      -> einzelner Ordner
 #   py tools/c_stylecheck.py ../EAuto_* ../IMD_*  -> beliebige Ordner / Glob-Muster
 #   py tools/c_stylecheck.py ../STM32_Millis/millis.h   -> einzelne Datei
@@ -663,8 +663,9 @@ def inDirs (rel, dirs):
 
 # Pfade/Globs zu Projekten aufloesen: {Projektname: (Basisordner, [(Datei, nur USER CODE)])}
 # defaults: Git-Submodule ueberspringen, CubeMX-Dateien nur in den USER CODE Bereichen pruefen
+# quiet: Ordner ohne .c/.h-Dateien nicht melden
 #-----------------------------------------------------------------------
-def collectProjects (targets, excludes, defaults=True):
+def collectProjects (targets, excludes, defaults=True, quiet=False):
 	projects = collections.OrderedDict()
 	seen = set()
 	for t in targets:
@@ -687,7 +688,7 @@ def collectProjects (targets, excludes, defaults=True):
 					continue
 				seen.add(p)
 				projects.setdefault(proj, (base, []))[1].append((p, defaults and isGenerated(p)))
-			if os.path.isdir(m) and proj not in projects:
+			if os.path.isdir(m) and proj not in projects and not quiet:
 				print(f"Hinweis: {proj}: keine Dateien zu pruefen", file=sys.stderr)
 	return projects
 #-----------------------------------------------------------------------
@@ -771,7 +772,7 @@ def main ():
 	here = os.path.dirname(os.path.abspath(__file__))
 	repoDir = os.path.dirname(here)
 	ownDir = os.path.dirname(repoDir)
-	defaultTarget = os.path.join(ownDir, "STM32_*")
+	defaultTarget = os.path.join(ownDir, "*")
 	defaultReports = os.path.join(repoDir, "reports")
 
 	ap = argparse.ArgumentParser(description="Prueft C-Dateien gegen C_CODING_STYLE.md")
@@ -794,7 +795,7 @@ def main ():
 			return 0
 
 	excludes = args.exclude + ([] if args.no_default_exclude else DEFAULT_EXCLUDE)
-	projects = collectProjects(args.paths or [defaultTarget], excludes, not args.no_default_exclude)
+	projects = collectProjects(args.paths or [defaultTarget], excludes, not args.no_default_exclude, not args.paths)
 	if not projects:
 		print("Keine .c/.h-Dateien gefunden.")
 		return 2
