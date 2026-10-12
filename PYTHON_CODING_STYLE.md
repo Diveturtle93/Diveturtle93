@@ -2,7 +2,7 @@
 
 Verbindlicher Layout- und Formatierungsstandard fuer alle Python-Dateien (`.py`) in den Projekten von **Diveturtle93**.
 
-Der Standard uebertraegt den [C Coding Style](C_CODING_STYLE.md) auf Python. Alles, was in C Pflicht ist, ist auch hier Pflicht; die Abschnitte stehen in derselben Reihenfolge und sehen gleich aus. Wo Python andere Mittel hat (Bloecke durch Einrueckung, kein Praeprozessor, keine Deklarationen), ist die naechstliegende Entsprechung festgelegt. Die Gegenueberstellung steht in [Abschnitt 3](#3-moduldatei-py), die bewussten Abweichungen von PEP 8 in [Abschnitt 6](#6-abweichungen-von-pep-8).
+Die bewussten Abweichungen von PEP 8 stehen in [Abschnitt 6](#6-abweichungen-von-pep-8).
 
 ---
 
@@ -15,15 +15,15 @@ Der Standard uebertraegt den [C Coding Style](C_CODING_STYLE.md) auf Python. All
 | Zeichensatz | reines ASCII – Umlaute werden als `ae`, `oe`, `ue`, `ss` geschrieben |
 | Sprache Kommentare | Deutsch |
 | Kommentarstil | nur `#`, nach `#` immer ein Leerzeichen |
-| Docstrings | **nicht** verwenden (entspricht "kein Doxygen") – die Beschreibung steht als Kommentar ueber Funktion, Methode bzw. Klasse |
-| Bloecke | Rumpf **immer** in eigener Zeile (entspricht Allman: jede `{` und `}` in eigener Zeile) |
+| Docstrings | **nicht** verwenden – die Beschreibung steht als Kommentar ueber Funktion, Methode bzw. Klasse |
+| Bloecke | Rumpf **immer** in eigener Zeile |
 | Anweisungen | eine Anweisung pro Zeile, kein `;` |
 | Strings | doppelte Anfuehrungszeichen `"` (nicht geprueft) |
 | Python-Version | Python 3.10 oder neuer (`match` / `case`) |
 
 ### Trennlinie
 
-Die Trennlinie besteht aus `#` gefolgt von **71** Bindestrichen (72 Zeichen gesamt, gleich lang wie in C). Sie steht immer in Spalte 1, auch direkt nach einem eingerueckten Block:
+Die Trennlinie besteht aus `#` gefolgt von **71** Bindestrichen (72 Zeichen gesamt). Sie steht immer in Spalte 1, auch direkt nach einem eingerueckten Block:
 
 ```python
 #-----------------------------------------------------------------------
@@ -73,8 +73,6 @@ Jede Datei beginnt mit diesem Kopfblock. Zwischen Bezeichner und `:` sowie zwisc
 
 ## 3. Moduldatei (`.py`)
 
-Eine `.py`-Datei ist Header und Quelldatei zugleich. Die Abschnitte von `.h` und `.c` werden deshalb in einer Datei zusammengefasst, in derselben Reihenfolge wie in C.
-
 Reihenfolge der Abschnitte (Pflicht, fett = immer vorhanden):
 
 1. **Dateikopf** – davor optional die Shebang-Zeile
@@ -99,28 +97,6 @@ Die Reihenfolge wird geprueft; optionale Abschnitte duerfen fehlen, die vorhande
 
 Nicht benoetigte Debug-Symbole stehen auf `False` oder werden auskommentiert (`# DEBUG_<NAME> = True`); auch dann zaehlen sie als vorhanden.
 
-### Gegenueberstellung zu C
-
-| C (`.h` / `.c`) | Python | Pflicht |
-|---|---|---|
-| Dateikopf | Dateikopf | ja |
-| Sicherheitssymbol (`#pragma once`), Dateiheader definieren (Include-Guard) | entfaellt – Python laedt ein Modul nur einmal | – |
-| – | Beschreibung | nein (nur Python) |
-| Einfuegen der standard Include-Dateien | Einfuegen der standard Module | ja |
-| Einfuegen der STM Include-Dateien | Einfuegen der externen Module | ja |
-| Einfuegen der eigenen Include-Dateien | Einfuegen der eigenen Module | ja |
-| Definiere Debug-Symbole (Pflicht, wenn es eine `.c` gibt) | Definiere Debug-Symbole | ja (jede `.py` hat Code) |
-| Version definieren | Version definieren | ja |
-| Konstanten definieren | Konstanten definieren | nein |
-| Typedefs | Klassen | nein |
-| Definiere globale Variablen (`extern`) / Variablen definieren | Variablen definieren | ja |
-| Variablen einbinden | Variablen einbinden | nein |
-| Funktionen definieren (Prototypen) | entfaellt – Python braucht keine Deklarationen | – |
-| Funktionen | Funktionen | nein |
-| – | Funktionstabellen definieren | nein (nur Python) |
-| – | Hauptprogramm | nein (nur Python) |
-| Abschluss (`#endif` + Trennlinie) | Abschluss (Trennlinie) | ja |
-
 ### Imports
 
 - Ein Modul pro `import`-Zeile: `import os`, nicht `import os, sys`. `from paket import a, b` ist erlaubt; lange Listen in Klammern, ein Name pro Zeile, mit Tab eingerueckt.
@@ -143,7 +119,7 @@ def <name> (<Parameter>):
 #-----------------------------------------------------------------------
 ```
 
-Dekoratoren stehen zwischen Trennlinie und Funktionskopf (wie `#if` / `#ifdef` in C):
+Dekoratoren stehen zwischen Trennlinie und Funktionskopf:
 
 ```python
 # Wert zwischenspeichern
@@ -283,7 +259,7 @@ if __name__ == "__main__":
 
 - Der Rumpf von `if`, `elif`, `else`, `for`, `while`, `with`, `try`, `except`, `finally`, `def`, `class`, `match` und `case` steht **immer** in einer eigenen Zeile.
 - Nach Schluesselwoertern ein Leerzeichen, wenn eine Klammer folgt: `if (a or b) and c:`, nicht `if(a or b) and c:`. Ohne Klammer: `if canIsActive:` (keine Klammern um einfache Bedingungen).
-- Folgt nur ein einzelnes `return`, steht es wie in C eingerueckt in der naechsten Zeile:
+- Folgt nur ein einzelnes `return`, steht es ebenfalls eingerueckt in der naechsten Zeile:
   ```python
   # Beende wenn CAN-Bus aktiv ist
   if canIsActive:
@@ -309,12 +285,9 @@ else:
 
 ### `match` / `case`
 
-`match` / `case` ist das Gegenstueck zu `switch` / `case`.
-
 - Jeder `case` steht in eigener Zeile, der Code darunter eingerueckt.
-- Mehrere Werte mit gleichem Code werden mit `|` zusammengefasst: `case 1 | 2:` (entspricht mehreren `case`-Marken untereinander).
-- `case _:` (entspricht `default`) ist **immer** vorhanden und steht als letzter Zweig.
-- Ein Durchfallen wie in C gibt es nicht; `break` und die Markierung `fall through` entfallen.
+- Mehrere Werte mit gleichem Code werden mit `|` zusammengefasst: `case 1 | 2:`.
+- `case _:` ist **immer** vorhanden und steht als letzter Zweig.
 - Ein leerer Zweig enthaelt `pass`.
 
 ```python
@@ -333,7 +306,7 @@ match wert:
 
 - Definition: Leerzeichen zwischen Name und Klammer – `def setState (state):`, auch bei Klassen mit Basisklasse: `class CanManager (Base):`.
 - Aufrufe ohne Leerzeichen – `setState(Ready)`, `time.time()`.
-- Keine Parameter → `def initBeispiel ():` (entspricht `(void)`).
+- Keine Parameter → `def initBeispiel ():`.
 - Typ-Annotationen sind erlaubt: `def send (self, canId: int, data: bytes) -> bool:`.
 
 ### Kommentare
@@ -348,11 +321,11 @@ match wert:
 - Vor `return` darf zur Trennung eine Leerzeile stehen.
 - Zwischen Methoden einer Klasse eine Leerzeile.
 
-### Konstanten (entspricht `#define`)
+### Konstanten
 
-- Werte einer Gruppe stehen per Tabs ausgerichtet untereinander: zwischen Name und `=` stehen Tabs bis **Spalte 41** (dort stehen in C die Werte der `#define`), nach `=` ein Leerzeichen.
+- Werte einer Gruppe stehen per Tabs ausgerichtet untereinander: zwischen Name und `=` stehen Tabs bis **Spalte 41**, nach `=` ein Leerzeichen.
 - Name in `GROSSBUCHSTABEN` mit `_`.
-- Gilt fuer `Definiere Debug-Symbole`, `Version definieren` und `Konstanten definieren` (nicht geprueft, wie in C).
+- Gilt fuer `Definiere Debug-Symbole`, `Version definieren` und `Konstanten definieren` (nicht geprueft).
 
 ```python
 TIMEOUT									= 1000								# Timeout in ms
@@ -384,7 +357,7 @@ Geprueft werden die Namen von Funktionen, Methoden und Klassen (kein `snake_case
 
 ## 6. Abweichungen von PEP 8
 
-Damit C- und Python-Code im selben Projekt gleich aussehen, weicht dieser Standard bewusst von PEP 8 ab:
+Dieser Standard weicht bewusst von PEP 8 ab:
 
 | PEP 8 | Dieser Standard |
 |---|---|
@@ -402,38 +375,7 @@ Linter wie `flake8` oder `pylint` melden diese Punkte; dort die Regeln `W191`, `
 
 ## 7. Automatische Pruefung
 
-Das Skript [tools/py_stylecheck.py](tools/py_stylecheck.py) prueft Python-Dateien gegen diesen Standard (benoetigt Python 3.10+, keine weiteren Pakete; nutzt Hilfsfunktionen aus [tools/c_stylecheck.py](tools/c_stylecheck.py)).
-
-```sh
-py tools/py_stylecheck.py                           # alle Ordner neben diesem Repo
-py tools/py_stylecheck.py ../EAuto_Dashboard        # ein Ordner
-py tools/py_stylecheck.py "../EAuto_*"              # beliebige Ordner oder Glob-Muster
-py tools/py_stylecheck.py tools/py_stylecheck.py    # eine Datei
-py tools/py_stylecheck.py -q                        # nur Dateien mit Befund anzeigen
-py tools/py_stylecheck.py -s                        # nur Zusammenfassung
-py tools/py_stylecheck.py ../EAuto_Dashboard -x openblt  # zusaetzlich Pfade ausschliessen (Regex)
-py tools/py_stylecheck.py -r                        # je Projekt Report nach reports/py/<JJJJMMTT>_<Projekt>.txt
-py tools/py_stylecheck.py -r -f                     # Reports nur fuer Projekte mit Befunden
-py tools/py_stylecheck.py -c                        # alle Python-Reports in reports/py/ loeschen
-py tools/py_stylecheck.py -c -r                     # alte Python-Reports loeschen, danach neu schreiben
-```
-
-Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Die Python-Reports liegen im Unterordner `py/` des Report-Ordners (z. B. `reports/py/20261012_EAuto_Dashboard.txt`), getrennt von den C-Reports in `c/`; ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten. Mit `-r` entsteht zusaetzlich immer `<JJJJMMTT>_Uebersicht.txt` mit einer Zeile je gepruefem Projekt (Dateien, Befunde, Report geschrieben ja/nein), auch mit `-f`. `-c` loescht nur die Reports im Unterordner `py/`.
-
-Ordner ohne `.py`-Dateien werden beim Standardaufruf (alle Ordner neben diesem Repo) stillschweigend uebersprungen. Virtuelle Umgebungen (`venv`, `.venv`, `env`), `__pycache__`, `build`, `dist`, `site-packages` sowie Git-Submodule aus der `.gitmodules` des Projekts werden automatisch uebersprungen. Mit `--no-default-exclude` werden sie mitgeprueft.
-
-Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im Projektordner, gemeinsam mit `c_stylecheck.py`: `[stylecheck]` gilt fuer beide Sprachen, `[py]` nur fuer Python und ergaenzt `[stylecheck]` (siehe C-Standard). Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
-
-```ini
-[stylecheck]
-exclude = Test            # fuer C und Python ausschliessen
-
-[py]
-exclude = openblt         # nur fuer Python zusaetzlich ausschliessen (z. B. fremde Bibliotheken)
-include = backend, ui     # nur diese Ordner pruefen
-```
-
-Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
+Das Skript [tools/py_stylecheck.py](tools/py_stylecheck.py) prueft Python-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](tools/README.md) beschrieben.
 
 ---
 

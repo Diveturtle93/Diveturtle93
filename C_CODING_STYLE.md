@@ -438,53 +438,7 @@ switch (wert)
 
 ## 7. Automatische Pruefung
 
-Das Skript [tools/c_stylecheck.py](tools/c_stylecheck.py) prueft C-Dateien gegen diesen Standard (benoetigt Python 3, keine weiteren Pakete).
-
-```sh
-py tools/c_stylecheck.py                          # alle Ordner neben diesem Repo
-py tools/c_stylecheck.py ../STM32_Canbus          # ein Ordner
-py tools/c_stylecheck.py "../EAuto_*" ../IMD_*    # beliebige Ordner oder Glob-Muster
-py tools/c_stylecheck.py ../STM32_Millis/millis.h # eine Datei
-py tools/c_stylecheck.py -q                       # nur Dateien mit Befund anzeigen
-py tools/c_stylecheck.py -s                       # nur Zusammenfassung
-py tools/c_stylecheck.py ../EAuto_BMS -x openblt  # zusaetzlich Pfade ausschliessen (Regex)
-py tools/c_stylecheck.py -r                       # je Projekt Report nach reports/c/<JJJJMMTT>_<Projekt>.txt
-py tools/c_stylecheck.py "../EAuto_*" -r          # Reports fuer andere Ordner
-py tools/c_stylecheck.py -r -f                    # Reports nur fuer Projekte mit Befunden
-py tools/c_stylecheck.py -c                       # alle C-Reports in reports/c/ loeschen
-py tools/c_stylecheck.py -c out                   # alle C-Reports in out/c/ loeschen
-py tools/c_stylecheck.py -c -r                    # alte Reports loeschen, danach neu schreiben
-```
-
-Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Die C-Reports liegen im Unterordner `c/` des Report-Ordners, die Python-Reports von `py_stylecheck.py` in `py/`. Der Dateiname beginnt mit dem Datum (z. B. `reports/c/20261008_STM32_Canbus.txt`); ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten.
-
-Mit `-r` entsteht zusaetzlich immer `<JJJJMMTT>_Uebersicht.txt` mit einer Zeile je gepruefem Projekt (Dateien, Befunde, Report geschrieben ja/nein). Die Uebersicht enthaelt auch mit `-f` alle Projekte; Ordner ohne `.c`/`.h`-Dateien erscheinen nicht.
-
-Mit `-c` werden alle Reports (`<JJJJMMTT>_*.txt`, jedes Datum, jedes Projekt, auch die Uebersicht) im Unterordner `c/` geloescht; andere Dateien und die Python-Reports bleiben erhalten. Der Ordner `reports/` steht in der `.gitignore`.
-
-HAL-, CMSIS- und Startup-Dateien sowie Git-Submodule aus der `.gitmodules` des Projekts werden automatisch uebersprungen; Submodule sind eigene Repos und werden dort geprueft.
-
-Von STM32CubeMX generierte Dateien (z. B. unter `Core/`) werden nur zwischen `/* USER CODE BEGIN ... */` und `/* USER CODE END ... */` geprueft. Der Bereich `Header` (ST-Lizenzkopf) und die Pruefungen der Dateistruktur (Kopfblock, Abschnitte, Header, Debug-Symbole, Reihenfolge) entfallen, fehlerhafte Marker werden gemeldet. Im Report sind diese Dateien mit `nur USER CODE` gekennzeichnet.
-
-Mit `--no-default-exclude` werden alle diese Dateien vollstaendig geprueft.
-
-Projektspezifische Einstellungen stehen optional in der Datei `.stylecheck` im Projektordner. Sie wird von `c_stylecheck.py` und `py_stylecheck.py` gemeinsam genutzt: `[stylecheck]` gilt fuer beide Sprachen, `[c]` bzw. `[py]` nur fuer die jeweilige Sprache und ergaenzt `[stylecheck]`. Ordner oder einzelne Dateien werden relativ zum Projektordner angegeben, mehrere mit Komma getrennt:
-
-```ini
-[stylecheck]
-exclude = Test                  # fuer C und Python ausschliessen
-
-[c]
-exclude = Application/Inc/git.h # nur fuer C zusaetzlich ausschliessen
-include = Core, Application     # nur diese Ordner pruefen
-
-[py]
-exclude = openblt               # nur fuer Python zusaetzlich ausschliessen
-```
-
-Die frueheren Dateien `.c_stylecheck` und `.py_stylecheck` werden nicht mehr gelesen; liegen sie noch im Projekt, gibt das Skript eine Warnung aus.
-
-Die Datei wird nur angelegt, wenn die automatischen Ausschluesse nicht reichen. Rueckgabewert: `0` = keine Befunde, `1` = Befunde, `2` = keine Dateien gefunden.
+Das Skript [tools/c_stylecheck.py](tools/c_stylecheck.py) prueft C-Dateien gegen diesen Standard. Aufruf, Reports, Ausschluesse und Projekteinstellungen sind in [tools/README.md](tools/README.md) beschrieben.
 
 ---
 
