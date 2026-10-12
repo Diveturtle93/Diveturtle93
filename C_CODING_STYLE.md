@@ -448,15 +448,19 @@ py tools/c_stylecheck.py ../STM32_Millis/millis.h # eine Datei
 py tools/c_stylecheck.py -q                       # nur Dateien mit Befund anzeigen
 py tools/c_stylecheck.py -s                       # nur Zusammenfassung
 py tools/c_stylecheck.py ../EAuto_BMS -x openblt  # zusaetzlich Pfade ausschliessen (Regex)
-py tools/c_stylecheck.py -r                       # je Projekt Report nach reports/<JJJJMMTT>_<Projekt>.txt
+py tools/c_stylecheck.py -r                       # je Projekt Report nach reports/c/<JJJJMMTT>_<Projekt>.txt
 py tools/c_stylecheck.py "../EAuto_*" -r          # Reports fuer andere Ordner
 py tools/c_stylecheck.py -r -f                    # Reports nur fuer Projekte mit Befunden
-py tools/c_stylecheck.py -c                       # alle Reports in reports/ loeschen
-py tools/c_stylecheck.py -c out                   # alle Reports in out/ loeschen
+py tools/c_stylecheck.py -c                       # alle C-Reports in reports/c/ loeschen
+py tools/c_stylecheck.py -c out                   # alle C-Reports in out/c/ loeschen
 py tools/c_stylecheck.py -c -r                    # alte Reports loeschen, danach neu schreiben
 ```
 
-Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Der Dateiname beginnt mit dem Datum (z. B. `20261008_STM32_Canbus.txt`); ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten. Mit `-c` werden alle Reports (`<JJJJMMTT>_<Projekt>.txt`, jedes Datum, jedes Projekt) im Report-Ordner geloescht; andere Dateien bleiben erhalten. Der Ordner `reports/` steht in der `.gitignore`.
+Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Die C-Reports liegen im Unterordner `c/` des Report-Ordners, die Python-Reports von `py_stylecheck.py` in `py/`. Der Dateiname beginnt mit dem Datum (z. B. `reports/c/20261008_STM32_Canbus.txt`); ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten.
+
+Mit `-r` entsteht zusaetzlich immer `<JJJJMMTT>_Uebersicht.txt` mit einer Zeile je gepruefem Projekt (Dateien, Befunde, Report geschrieben ja/nein). Die Uebersicht enthaelt auch mit `-f` alle Projekte; Ordner ohne `.c`/`.h`-Dateien erscheinen nicht.
+
+Mit `-c` werden alle Reports (`<JJJJMMTT>_*.txt`, jedes Datum, jedes Projekt, auch die Uebersicht) im Unterordner `c/` geloescht; andere Dateien und die Python-Reports bleiben erhalten. Der Ordner `reports/` steht in der `.gitignore`.
 
 HAL-, CMSIS- und Startup-Dateien sowie Git-Submodule aus der `.gitmodules` des Projekts werden automatisch uebersprungen; Submodule sind eigene Repos und werden dort geprueft.
 

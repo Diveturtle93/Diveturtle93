@@ -18,16 +18,18 @@
 #   py tools/c_stylecheck.py ../STM32_Canbus      -> einzelner Ordner
 #   py tools/c_stylecheck.py ../EAuto_* ../IMD_*  -> beliebige Ordner / Glob-Muster
 #   py tools/c_stylecheck.py ../STM32_Millis/millis.h   -> einzelne Datei
-#   py tools/c_stylecheck.py -r                   -> Reports nach reports/<JJJJMMTT>_<Projekt>.txt
+#   py tools/c_stylecheck.py -r                   -> Reports nach reports/c/<JJJJMMTT>_<Projekt>.txt
 #   py tools/c_stylecheck.py -r -f                -> Reports nur fuer Projekte mit Befunden
-#   py tools/c_stylecheck.py -c                   -> alle Reports in reports/ loeschen
-#   py tools/c_stylecheck.py -c out               -> alle Reports in out/ loeschen
+#   py tools/c_stylecheck.py -c                   -> alle C-Reports in reports/c/ loeschen
+#   py tools/c_stylecheck.py -c out               -> alle C-Reports in out/c/ loeschen
 #
 # Optionen:
-#   -r / --report [DIR]  je Projekt einen Report <JJJJMMTT>_<Projekt>.txt schreiben (Standard: reports/)
-#   -f / --findings-only mit -r nur Reports fuer Projekte mit Befunden schreiben
-#   -c / --clean [DIR]   alle Reports <JJJJMMTT>_<Projekt>.txt im Ordner loeschen, egal welches
-#                        Projekt (Standard: reports/), mit -r werden danach neue Reports geschrieben
+#   -r / --report [DIR]  je Projekt einen Report DIR/c/<JJJJMMTT>_<Projekt>.txt schreiben (Standard: reports/),
+#                        dazu immer DIR/c/<JJJJMMTT>_Uebersicht.txt ueber alle Projekte
+#   -f / --findings-only mit -r nur Reports fuer Projekte mit Befunden schreiben, die Uebersicht
+#                        enthaelt weiterhin alle Projekte
+#   -c / --clean [DIR]   alle Reports DIR/c/<JJJJMMTT>_*.txt loeschen, egal welches Projekt
+#                        (Standard: reports/), mit -r werden danach neue Reports geschrieben
 #   -q / --quiet         Dateien ohne Befund nicht anzeigen
 #   -s / --summary       nur Zusammenfassung je Kategorie
 #   -x / --exclude REGEX zusaetzliche Pfade ausschliessen (mehrfach moeglich)
@@ -96,6 +98,8 @@ LEGACY_CONFIG_FILES						= (".c_stylecheck", ".py_stylecheck")	# alte Dateinamen
 SEP										= "//" + "-" * 70					# Trennlinie, 72 Zeichen
 COMMENT_COL								= 77								# Spalte der Zeilenkommentare
 TAB_WIDTH								= 4									# Tabbreite
+REPORT_SUBDIR							= "c"								# Reports nach <DIR>/c/
+OVERVIEW_NAME							= "Uebersicht"						# <JJJJMMTT>_Uebersicht.txt
 
 # Generierte bzw. fremde Dateien (STM32CubeMX, HAL, CMSIS, Build-Ausgaben)
 DEFAULT_EXCLUDE							= [
@@ -693,7 +697,7 @@ def collectProjects (targets, excludes, defaults=True, quiet=False):
 	return projects
 #-----------------------------------------------------------------------
 
-# Alle Reports <JJJJMMTT>_<Projekt>.txt im Ordner loeschen, Rueckgabe: Anzahl
+# Alle Reports <JJJJMMTT>_*.txt im Ordner loeschen (auch die Uebersicht), Rueckgabe: Anzahl
 #-----------------------------------------------------------------------
 def cleanReports (reportDir):
 	if not os.path.isdir(reportDir):
@@ -766,6 +770,45 @@ def buildReport (proj, base, results, userCode=()):
 	return "\n".join(out)
 #-----------------------------------------------------------------------
 
+# Uebersicht ueber alle Projekte erzeugen
+# rows: [(Projekt, Dateien, Dateien ohne Befund, Befunde, Report geschrieben)]
+#-----------------------------------------------------------------------
+def buildOverview (lang, rules, rows, total):
+	out = []
+	out.append("=" * 72)
+	out.append(f"Uebersicht   : {lang}")
+	out.append(f"Erstellt     : {datetime.datetime.now():%d.%m.%Y %H:%M}")
+	out.append(f"Regeln       : {rules}")
+	out.append(f"Projekte     : {len(rows)}, davon {sum(1 for r in rows if not r[3])} ohne Befund")
+	out.append(f"Dateien      : {sum(r[1] for r in rows)}, davon {sum(r[2] for r in rows)} ohne Befund")
+	out.append(f"Befunde      : {sum(r[3] for r in rows)}")
+	out.append("=" * 72)
+
+	out.append("")
+	out.append(f"{'Projekt':34} {'Dateien':>8} {'ohne Bef.':>10} {'Befunde':>8}  Report")
+	out.append("-" * 72)
+	for proj, nFiles, nClean, nIssues, written in rows:
+		out.append(f"{proj:34} {nFiles:8} {nClean:10} {nIssues:8}  {'ja' if written else '-'}")
+
+	if total:
+		out.append("")
+		out.append("Befunde je Kategorie")
+		out.append("-" * 72)
+		for c, n in total.most_common():
+			out.append(f"{n:6}  {c}")
+	out.append("")
+	return "\n".join(out)
+#-----------------------------------------------------------------------
+
+# Uebersicht <JJJJMMTT>_Uebersicht.txt in den Report-Ordner schreiben
+#-----------------------------------------------------------------------
+def writeOverview (reportDir, datePrefix, lang, rules, rows, total):
+	path = os.path.join(reportDir, f"{datePrefix}_{OVERVIEW_NAME}.txt")
+	with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
+		f.write(buildOverview(lang, rules, rows, total))
+	print(f"{'Uebersicht':30} {len(rows):6} Projekte -> {os.path.relpath(path)}")
+#-----------------------------------------------------------------------
+
 # Kommandozeile auswerten und Projekte pruefen
 #-----------------------------------------------------------------------
 def main ():
@@ -778,11 +821,11 @@ def main ():
 	ap = argparse.ArgumentParser(description="Prueft C-Dateien gegen C_CODING_STYLE.md")
 	ap.add_argument("paths", nargs="*", help=f"Ordner, Dateien oder Glob-Muster (Standard: {defaultTarget})")
 	ap.add_argument("-r", "--report", nargs="?", const=defaultReports, metavar="DIR",
-		help=f"je Projekt Report <JJJJMMTT>_<Projekt>.txt schreiben (Standard: {defaultReports})")
+		help=f"je Projekt Report DIR/{REPORT_SUBDIR}/<JJJJMMTT>_<Projekt>.txt und eine Uebersicht schreiben (Standard: {defaultReports})")
 	ap.add_argument("-f", "--findings-only", action="store_true",
-		help="mit -r nur Reports fuer Projekte mit Befunden schreiben")
+		help="mit -r nur Reports fuer Projekte mit Befunden schreiben, die Uebersicht enthaelt alle Projekte")
 	ap.add_argument("-c", "--clean", nargs="?", const=defaultReports, metavar="DIR",
-		help=f"alle Reports im Ordner loeschen (Standard: {defaultReports}), mit -r danach neu schreiben")
+		help=f"alle C-Reports in DIR/{REPORT_SUBDIR}/ loeschen (Standard: {defaultReports}), mit -r danach neu schreiben")
 	ap.add_argument("-q", "--quiet", action="store_true", help="Dateien ohne Befund nicht anzeigen")
 	ap.add_argument("-s", "--summary", action="store_true", help="nur Zusammenfassung ausgeben")
 	ap.add_argument("-x", "--exclude", action="append", default=[], metavar="REGEX", help="zusaetzlich ausschliessen")
@@ -790,7 +833,7 @@ def main ():
 	args = ap.parse_args()
 
 	if args.clean:
-		print(f"{cleanReports(args.clean)} Reports geloescht")
+		print(f"{cleanReports(os.path.join(args.clean, REPORT_SUBDIR))} Reports geloescht")
 		if not args.report:
 			return 0
 
@@ -800,13 +843,15 @@ def main ():
 		print("Keine .c/.h-Dateien gefunden.")
 		return 2
 
-	if args.report:
-		os.makedirs(args.report, exist_ok=True)
+	reportDir = os.path.join(args.report, REPORT_SUBDIR) if args.report else None
+	if reportDir:
+		os.makedirs(reportDir, exist_ok=True)
 	datePrefix = datetime.date.today().strftime("%Y%m%d")
 
 	total = collections.Counter()
 	nFiles = 0
 	nClean = 0
+	rows = []
 	for proj, (base, files) in projects.items():
 		cNames = cBasenames(base)
 		results = [(p, checkFile(p, cNames, uc)) for p, uc in files]
@@ -817,12 +862,14 @@ def main ():
 			for x in iss:
 				total[x.cat] += 1
 
-		if args.report:
+		if reportDir:
 			nIssues = sum(len(i) for _, i in results)
-			if args.findings_only and not nIssues:
+			written = nIssues > 0 or not args.findings_only
+			rows.append((proj, len(results), sum(1 for _, i in results if not i), nIssues, written))
+			if not written:
 				print(f"{proj:30} {0:6} Befunde  -> kein Report")
 				continue
-			path = os.path.join(args.report, f"{datePrefix}_{proj}.txt")
+			path = os.path.join(reportDir, f"{datePrefix}_{proj}.txt")
 			with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
 				f.write(buildReport(proj, base, results, userCode))
 			print(f"{proj:30} {nIssues:6} Befunde  -> {os.path.relpath(path)}")
@@ -836,6 +883,9 @@ def main ():
 			print(f"\n### {proj}/{fileTitle(p, base, iss, userCode)}")
 			for x in iss:
 				print(formatIssue(x))
+
+	if reportDir:
+		writeOverview(reportDir, datePrefix, "C", "C_CODING_STYLE.md", rows, total)
 
 	print("\n=== Befunde je Kategorie ===")
 	for c, n in total.most_common():

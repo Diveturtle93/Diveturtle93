@@ -412,13 +412,13 @@ py tools/py_stylecheck.py tools/py_stylecheck.py    # eine Datei
 py tools/py_stylecheck.py -q                        # nur Dateien mit Befund anzeigen
 py tools/py_stylecheck.py -s                        # nur Zusammenfassung
 py tools/py_stylecheck.py ../EAuto_Dashboard -x openblt  # zusaetzlich Pfade ausschliessen (Regex)
-py tools/py_stylecheck.py -r                        # je Projekt Report nach reports/<JJJJMMTT>_<Projekt>_py.txt
+py tools/py_stylecheck.py -r                        # je Projekt Report nach reports/py/<JJJJMMTT>_<Projekt>.txt
 py tools/py_stylecheck.py -r -f                     # Reports nur fuer Projekte mit Befunden
-py tools/py_stylecheck.py -c                        # alle Python-Reports in reports/ loeschen
+py tools/py_stylecheck.py -c                        # alle Python-Reports in reports/py/ loeschen
 py tools/py_stylecheck.py -c -r                     # alte Python-Reports loeschen, danach neu schreiben
 ```
 
-Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Der Dateiname endet auf `_py` (z. B. `20261012_EAuto_Dashboard_py.txt`), damit er nicht mit dem C-Report desselben Projekts kollidiert; ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten. `-c` loescht nur die Python-Reports (`<JJJJMMTT>_<Projekt>_py.txt`); `c_stylecheck.py -c` loescht dagegen alle Reports im Ordner.
+Ein Report listet je Datei jeden Befund mit Zeilennummer und Kategorie (`Datei` = betrifft die ganze Datei, z. B. fehlender Abschnitt). Jeder per Pfad oder Glob gefundene Ordner gilt als eigenes Projekt. Die Python-Reports liegen im Unterordner `py/` des Report-Ordners (z. B. `reports/py/20261012_EAuto_Dashboard.txt`), getrennt von den C-Reports in `c/`; ein Report vom selben Tag wird ueberschrieben, aeltere bleiben erhalten. Mit `-r` entsteht zusaetzlich immer `<JJJJMMTT>_Uebersicht.txt` mit einer Zeile je gepruefem Projekt (Dateien, Befunde, Report geschrieben ja/nein), auch mit `-f`. `-c` loescht nur die Reports im Unterordner `py/`.
 
 Ordner ohne `.py`-Dateien werden beim Standardaufruf (alle Ordner neben diesem Repo) stillschweigend uebersprungen. Virtuelle Umgebungen (`venv`, `.venv`, `env`), `__pycache__`, `build`, `dist`, `site-packages` sowie Git-Submodule aus der `.gitmodules` des Projekts werden automatisch uebersprungen. Mit `--no-default-exclude` werden sie mitgeprueft.
 

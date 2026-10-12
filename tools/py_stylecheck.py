@@ -18,13 +18,16 @@
 #   py tools/py_stylecheck.py ../EAuto_Dashboard   -> einzelner Ordner
 #   py tools/py_stylecheck.py "../EAuto_*"         -> beliebige Ordner / Glob-Muster
 #   py tools/py_stylecheck.py tools/py_stylecheck.py   -> einzelne Datei
-#   py tools/py_stylecheck.py -r                   -> Reports nach reports/<JJJJMMTT>_<Projekt>_py.txt
-#   py tools/py_stylecheck.py -c                   -> alle Python-Reports in reports/ loeschen
+#   py tools/py_stylecheck.py -r                   -> Reports nach reports/py/<JJJJMMTT>_<Projekt>.txt
+#   py tools/py_stylecheck.py -r -f                -> Reports nur fuer Projekte mit Befunden
+#   py tools/py_stylecheck.py -c                   -> alle Python-Reports in reports/py/ loeschen
 #
 # Optionen:
-#   -r / --report [DIR]  je Projekt einen Report <JJJJMMTT>_<Projekt>_py.txt schreiben (Standard: reports/)
-#   -f / --findings-only mit -r nur Reports fuer Projekte mit Befunden schreiben
-#   -c / --clean [DIR]   alle Reports <JJJJMMTT>_<Projekt>_py.txt im Ordner loeschen,
+#   -r / --report [DIR]  je Projekt einen Report DIR/py/<JJJJMMTT>_<Projekt>.txt schreiben (Standard: reports/),
+#                        dazu immer DIR/py/<JJJJMMTT>_Uebersicht.txt ueber alle Projekte
+#   -f / --findings-only mit -r nur Reports fuer Projekte mit Befunden schreiben, die Uebersicht
+#                        enthaelt weiterhin alle Projekte
+#   -c / --clean [DIR]   alle Reports DIR/py/<JJJJMMTT>_*.txt loeschen (Standard: reports/),
 #                        mit -r werden danach neue Reports geschrieben
 #   -q / --quiet         Dateien ohne Befund nicht anzeigen
 #   -s / --summary       nur Zusammenfassung je Kategorie
@@ -61,7 +64,7 @@ import tokenize
 
 # Einfuegen der eigenen Module
 #-----------------------------------------------------------------------
-from c_stylecheck import Issue, checkOrder, formatIssue, inDirs, normDir, projectSettings, tabcol
+from c_stylecheck import Issue, checkOrder, cleanReports, formatIssue, inDirs, normDir, projectSettings, tabcol, writeOverview
 #-----------------------------------------------------------------------
 
 # Definiere Debug-Symbole
@@ -81,7 +84,7 @@ PY_STYLECHECK_DEV						= 0
 #-----------------------------------------------------------------------
 SEP										= "#" + "-" * 71					# Trennlinie, 72 Zeichen
 COMMENT_COL								= 77								# Spalte der Zeilenkommentare
-REPORT_SUFFIX							= "_py"								# <JJJJMMTT>_<Projekt>_py.txt
+REPORT_SUBDIR							= "py"								# Reports nach <DIR>/py/
 
 # Virtuelle Umgebungen, Caches und Build-Ausgaben
 DEFAULT_EXCLUDE							= [
@@ -648,24 +651,6 @@ def collectProjects (targets, excludes, defaults=True, quiet=False):
 	return projects
 #-----------------------------------------------------------------------
 
-# Alle Python-Reports <JJJJMMTT>_<Projekt>_py.txt im Ordner loeschen, Rueckgabe: Anzahl
-#-----------------------------------------------------------------------
-def cleanReports (reportDir):
-	if not os.path.isdir(reportDir):
-		print(f"Hinweis: Report-Ordner '{reportDir}' nicht vorhanden", file=sys.stderr)
-		return 0
-
-	pattern = re.compile(rf"^\d{{8}}_.+{REPORT_SUFFIX}\.txt$", re.I)
-	count = 0
-	for f in sorted(os.listdir(reportDir)):
-		path = os.path.join(reportDir, f)
-		if pattern.match(f) and os.path.isfile(path):
-			os.remove(path)
-			print(f"geloescht: {os.path.relpath(path)}")
-			count += 1
-	return count
-#-----------------------------------------------------------------------
-
 # Ueberschrift je Datei
 #-----------------------------------------------------------------------
 def fileTitle (p, base, iss):
@@ -727,11 +712,11 @@ def main ():
 	ap = argparse.ArgumentParser(description="Prueft Python-Dateien gegen PYTHON_CODING_STYLE.md")
 	ap.add_argument("paths", nargs="*", help=f"Ordner, Dateien oder Glob-Muster (Standard: {defaultTarget})")
 	ap.add_argument("-r", "--report", nargs="?", const=defaultReports, metavar="DIR",
-		help=f"je Projekt Report <JJJJMMTT>_<Projekt>{REPORT_SUFFIX}.txt schreiben (Standard: {defaultReports})")
+		help=f"je Projekt Report DIR/{REPORT_SUBDIR}/<JJJJMMTT>_<Projekt>.txt und eine Uebersicht schreiben (Standard: {defaultReports})")
 	ap.add_argument("-f", "--findings-only", action="store_true",
-		help="mit -r nur Reports fuer Projekte mit Befunden schreiben")
+		help="mit -r nur Reports fuer Projekte mit Befunden schreiben, die Uebersicht enthaelt alle Projekte")
 	ap.add_argument("-c", "--clean", nargs="?", const=defaultReports, metavar="DIR",
-		help=f"alle Python-Reports im Ordner loeschen (Standard: {defaultReports}), mit -r danach neu schreiben")
+		help=f"alle Python-Reports in DIR/{REPORT_SUBDIR}/ loeschen (Standard: {defaultReports}), mit -r danach neu schreiben")
 	ap.add_argument("-q", "--quiet", action="store_true", help="Dateien ohne Befund nicht anzeigen")
 	ap.add_argument("-s", "--summary", action="store_true", help="nur Zusammenfassung ausgeben")
 	ap.add_argument("-x", "--exclude", action="append", default=[], metavar="REGEX", help="zusaetzlich ausschliessen")
@@ -739,7 +724,7 @@ def main ():
 	args = ap.parse_args()
 
 	if args.clean:
-		print(f"{cleanReports(args.clean)} Reports geloescht")
+		print(f"{cleanReports(os.path.join(args.clean, REPORT_SUBDIR))} Reports geloescht")
 		if not args.report:
 			return 0
 
@@ -749,13 +734,15 @@ def main ():
 		print("Keine .py-Dateien gefunden.")
 		return 2
 
-	if args.report:
-		os.makedirs(args.report, exist_ok=True)
+	reportDir = os.path.join(args.report, REPORT_SUBDIR) if args.report else None
+	if reportDir:
+		os.makedirs(reportDir, exist_ok=True)
 	datePrefix = datetime.date.today().strftime("%Y%m%d")
 
 	total = collections.Counter()
 	nFiles = 0
 	nClean = 0
+	rows = []
 	for proj, (base, files) in projects.items():
 		results = [(p, checkFile(p, base)) for p in files]
 		nFiles += len(results)
@@ -764,12 +751,14 @@ def main ():
 			for x in iss:
 				total[x.cat] += 1
 
-		if args.report:
+		if reportDir:
 			nIssues = sum(len(i) for _, i in results)
-			if args.findings_only and not nIssues:
+			written = nIssues > 0 or not args.findings_only
+			rows.append((proj, len(results), sum(1 for _, i in results if not i), nIssues, written))
+			if not written:
 				print(f"{proj:30} {0:6} Befunde  -> kein Report")
 				continue
-			path = os.path.join(args.report, f"{datePrefix}_{proj}{REPORT_SUFFIX}.txt")
+			path = os.path.join(reportDir, f"{datePrefix}_{proj}.txt")
 			with open(path, "w", encoding="ascii", errors="replace", newline="\r\n") as f:
 				f.write(buildReport(proj, base, results))
 			print(f"{proj:30} {nIssues:6} Befunde  -> {os.path.relpath(path)}")
@@ -783,6 +772,9 @@ def main ():
 			print(f"\n### {proj}/{fileTitle(p, base, iss)}")
 			for x in iss:
 				print(formatIssue(x))
+
+	if reportDir:
+		writeOverview(reportDir, datePrefix, "Python", "PYTHON_CODING_STYLE.md", rows, total)
 
 	print("\n=== Befunde je Kategorie ===")
 	for c, n in total.most_common():
