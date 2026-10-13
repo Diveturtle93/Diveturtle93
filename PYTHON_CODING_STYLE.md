@@ -48,16 +48,16 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 
 ## 2. Dateikopf
 
-Jede Datei beginnt mit diesem Kopfblock. Zwischen Bezeichner und `:` sowie zwischen `:` und Wert steht jeweils **ein Tab**.
+Jede Datei beginnt mit diesem Kopfblock. Alle Doppelpunkte stehen mit Tabs ausgerichtet auf **Spalte 13** (Tabbreite 4), zwischen `:` und Wert steht **ein Tab**. Bei `Titel`, `Datum` und `Autor` sind dafuer zwei Tabs noetig.
 
 ```python
 #-----------------------------------------------------------------------
-# Titel	:	<dateiname>.py
+# Titel		:	<dateiname>.py
 #-----------------------------------------------------------------------
 # Sprache	:	Python
-# Datum	:	TT.MM.JJJJ
+# Datum		:	TT.MM.JJJJ
 # Version	:	1.0
-# Autor	:	Diveturtle93
+# Autor		:	Diveturtle93
 # Projekt	:	<Projektname>
 # Quelle	:	<optional: URL / Herkunft, sonst leer>
 #-----------------------------------------------------------------------
@@ -152,12 +152,12 @@ class CanManager:
 
 ```python
 #-----------------------------------------------------------------------
-# Titel	:	beispiel.py
+# Titel		:	beispiel.py
 #-----------------------------------------------------------------------
 # Sprache	:	Python
-# Datum	:	12.10.2026
+# Datum		:	12.10.2026
 # Version	:	1.0
-# Autor	:	Diveturtle93
+# Autor		:	Diveturtle93
 # Projekt	:	Beispiel
 # Quelle	:
 #-----------------------------------------------------------------------
@@ -180,20 +180,20 @@ import threading
 
 # Definiere Debug-Symbole
 #-----------------------------------------------------------------------
-DEBUG_BEISPIEL							= False
+DEBUG_BEISPIEL									= False
 #-----------------------------------------------------------------------
 
 # Version definieren
 #-----------------------------------------------------------------------
-BEISPIEL_MAJOR							= 0
-BEISPIEL_MINOR							= 0
-BEISPIEL_PATCH							= 0
-BEISPIEL_DEV							= 0
+BEISPIEL_MAJOR									= 0
+BEISPIEL_MINOR									= 0
+BEISPIEL_PATCH									= 0
+BEISPIEL_DEV									= 0
 #-----------------------------------------------------------------------
 
 # Konstanten definieren
 #-----------------------------------------------------------------------
-TIMEOUT									= 1000								# Timeout in ms
+TIMEOUT											= 1000						# Timeout in ms
 #-----------------------------------------------------------------------
 
 # Definiere Beispiel Typedefines
@@ -323,13 +323,13 @@ match wert:
 
 ### Konstanten
 
-- Werte einer Gruppe stehen per Tabs ausgerichtet untereinander: zwischen Name und `=` stehen Tabs bis **Spalte 41**, nach `=` ein Leerzeichen.
+- Zwischen Name und `=` stehen Tabs bis **Spalte 49** (wie die Werte der `#define` in C), nach `=` genau ein Leerzeichen. Ist der Name laenger, reicht ein Tab.
 - Name in `GROSSBUCHSTABEN` mit `_`.
-- Gilt fuer `Definiere Debug-Symbole`, `Version definieren` und `Konstanten definieren` (nicht geprueft).
+- Gilt fuer alle Konstanten auf Modulebene, also in `Definiere Debug-Symbole`, `Version definieren` und `Konstanten definieren`.
 
 ```python
-TIMEOUT									= 1000								# Timeout in ms
-RX_BUFFER_SIZE							= 64								# Groesse Empfangspuffer
+TIMEOUT											= 1000						# Timeout in ms
+RX_BUFFER_SIZE									= 64						# Groesse Empfangspuffer
 ```
 
 ---
@@ -367,7 +367,7 @@ Dieser Standard weicht bewusst von PEP 8 ab:
 | 2 Leerzeilen zwischen Funktionen/Klassen | 1 Leerzeile + Abschnitt mit Trennlinien |
 | Docstrings | Kommentar ueber der Definition |
 | Zeilenkommentar mit 2 Leerzeichen | Tabs bis Spalte 77 |
-| `NAME = wert` | `NAME<Tabs>= wert`, `=` auf Spalte 41 |
+| `NAME = wert` | `NAME<Tabs>= wert`, `=` auf Spalte 49 |
 
 Linter wie `flake8` oder `pylint` melden diese Punkte; dort die Regeln `W191`, `E101`, `E211`, `E221`, `E302`, `E305`, `N802`, `N803`, `N806` bzw. `C0103` und `C0114`–`C0116` abschalten.
 

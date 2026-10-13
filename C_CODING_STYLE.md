@@ -44,7 +44,7 @@ Jeder Abschnitt einer Datei hat immer dieselbe Form:
 
 ## 2. Dateikopf
 
-Jede Datei (`.c` und `.h`) beginnt mit diesem Kopfblock. Zwischen Bezeichner und `:` sowie zwischen `:` und Wert steht jeweils **ein Tab**.
+Jede Datei (`.c` und `.h`) beginnt mit diesem Kopfblock. Alle Doppelpunkte stehen mit Tabs ausgerichtet auf **Spalte 13** (Tabbreite 4), zwischen `:` und Wert steht **ein Tab**.
 
 ```c
 //----------------------------------------------------------------------
@@ -138,15 +138,15 @@ Innerhalb von `#ifdef` / `#endif` wird mit einem Tab eingerueckt. Nicht benoetig
 
 // Version definieren
 //----------------------------------------------------------------------
-#define BEISPIEL_MAJOR					0
-#define BEISPIEL_MINOR					0
-#define BEISPIEL_PATCH					0
-#define BEISPIEL_DEV					0
+#define BEISPIEL_MAJOR							0
+#define BEISPIEL_MINOR							0
+#define BEISPIEL_PATCH							0
+#define BEISPIEL_DEV							0
 //----------------------------------------------------------------------
 
 // Konstanten definieren
 //----------------------------------------------------------------------
-#define TIMEOUT							1000								// Timeout in ms
+#define TIMEOUT									1000						// Timeout in ms
 //----------------------------------------------------------------------
 
 // Definiere Beispiel Typedefines
@@ -162,6 +162,18 @@ typedef struct
 	uint32_t id;															// Identifier
 	uint8_t len;															// Datenlaenge
 } Beispiel_TypeDef;
+//----------------------------------------------------------------------
+typedef union
+{
+	struct
+	{
+		uint8_t Bereit : 1;						// 0						// Signal Bereit
+		uint8_t Fehler : 1;						// 1						// Signal Fehler
+		uint8_t  : 6;							// 2 - 7
+	};
+
+	uint8_t status;								// 1 Byte
+} beispielStatus;
 //----------------------------------------------------------------------
 
 // Definiere globale Variablen
@@ -406,7 +418,16 @@ switch (wert)
 
 - **Blockkommentar** ueber einer Anweisungsgruppe: eigene Zeile, gleiche Einrueckung wie der Code.
 - **Zeilenkommentar** hinter Code (Defines, Enum-Werte, Struct-Member, Variablen, Prototypen): mit Tabs auf **Spalte 77** (Tabbreite 4) ausgerichtet. Ist der Code laenger, reicht ein Tab.
-- Enum-Werte werden im Kommentar mit ihrem Zahlenwert begonnen: `// 3 Anlasser betaetigt`.
+- **Positionsangabe** in `union` und `enum`: Member duerfen vor der Beschreibung einen ersten Kommentar mit Tabs auf **Spalte 49** haben, die Beschreibung folgt auf Spalte 77.
+  - `union`: Bitposition (`// 4`, `// 2 - 7`) bzw. Groesse des Gesamtwerts (`// 1 Byte`). Unbenannte Bits und der Gesamtwert haben nur die Positionsangabe.
+  - `enum`: Zahlenwert (`// 3`).
+- Enum-Werte werden im Kommentar mit ihrem Zahlenwert begonnen: `// 3 Anlasser betaetigt`, oder der Zahlenwert steht als Positionsangabe auf Spalte 49.
+
+```c
+	Anlassen,									// 3						// Anlasser betaetigt
+		uint8_t Wakeup : 1;						// 7						// Signal Wakeup
+	uint8_t systeminput;						// 1 Byte
+```
 
 ### Leerzeilen
 
@@ -415,8 +436,13 @@ switch (wert)
 
 ### `#define`
 
-- Werte einer Gruppe stehen per Tabs ausgerichtet untereinander.
+- Der Wert steht mit Tabs auf **Spalte 49** (Tabbreite 4). Ist der Name laenger, reicht ein Tab.
 - Name in `GROSSBUCHSTABEN` mit `_`.
+
+```c
+#define TIMEOUT									1000						// Timeout in ms
+#define WRCFG									0b00000000001				// Write Configuration
+```
 
 ---
 

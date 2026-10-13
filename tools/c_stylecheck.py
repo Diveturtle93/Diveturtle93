@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 #-----------------------------------------------------------------------
-# Titel	:	c_stylecheck.py
+# Titel		:	c_stylecheck.py
 #-----------------------------------------------------------------------
 # Sprache	:	Python
-# Datum	:	08.10.2026
+# Datum		:	08.10.2026
 # Version	:	1.0
-# Autor	:	Diveturtle93
+# Autor		:	Diveturtle93
 # Projekt	:	Diveturtle93
 # Quelle	:
 #-----------------------------------------------------------------------
@@ -79,30 +79,32 @@ import sys
 
 # Definiere Debug-Symbole
 #-----------------------------------------------------------------------
-DEBUG_C_STYLECHECK						= False
+DEBUG_C_STYLECHECK								= False
 #-----------------------------------------------------------------------
 
 # Version definieren
 #-----------------------------------------------------------------------
-C_STYLECHECK_MAJOR						= 1
-C_STYLECHECK_MINOR						= 0
-C_STYLECHECK_PATCH						= 0
-C_STYLECHECK_DEV						= 0
+C_STYLECHECK_MAJOR								= 1
+C_STYLECHECK_MINOR								= 0
+C_STYLECHECK_PATCH								= 0
+C_STYLECHECK_DEV								= 0
 #-----------------------------------------------------------------------
 
 # Konstanten definieren
 #-----------------------------------------------------------------------
-CONFIG_FILE								= ".stylecheck"						# Projekt-Einstellungen (C und Python)
-CONFIG_SECTIONS							= ("stylecheck", "c", "py")			# [stylecheck] gilt fuer beide Sprachen
-LEGACY_CONFIG_FILES						= (".c_stylecheck", ".py_stylecheck")	# alte Dateinamen, nur noch Warnung
-SEP										= "//" + "-" * 70					# Trennlinie, 72 Zeichen
-COMMENT_COL								= 77								# Spalte der Zeilenkommentare
-TAB_WIDTH								= 4									# Tabbreite
-REPORT_SUBDIR							= "c"								# Reports nach <DIR>/c/
-OVERVIEW_NAME							= "Uebersicht"						# <JJJJMMTT>_Uebersicht.txt
+CONFIG_FILE										= ".stylecheck"				# Projekt-Einstellungen (C und Python)
+CONFIG_SECTIONS									= ("stylecheck", "c", "py")	# [stylecheck] gilt fuer beide Sprachen
+LEGACY_CONFIG_FILES								= (".c_stylecheck", ".py_stylecheck")	# alte Dateinamen, nur noch Warnung
+SEP												= "//" + "-" * 70			# Trennlinie, 72 Zeichen
+COMMENT_COL										= 77						# Spalte der Zeilenkommentare
+HEAD_COL										= 13						# Spalte des : im Kopfblock
+VALUE_COL										= 49						# Spalte der Werte (#define) und Positionsangaben (union/enum)
+TAB_WIDTH										= 4							# Tabbreite
+REPORT_SUBDIR									= "c"						# Reports nach <DIR>/c/
+OVERVIEW_NAME									= "Uebersicht"				# <JJJJMMTT>_Uebersicht.txt
 
 # Generierte bzw. fremde Dateien (STM32CubeMX, HAL, CMSIS, Build-Ausgaben)
-DEFAULT_EXCLUDE							= [
+DEFAULT_EXCLUDE									= [
 	r"[\\/]\.git[\\/]",
 	r"[\\/](Drivers|Middlewares|CMSIS|Debug|Release|build)[\\/]",
 	r"stm32\w*_hal(?!_msp\.c$)",
@@ -112,31 +114,31 @@ DEFAULT_EXCLUDE							= [
 	r"sysmem\.c$",
 ]
 
-INC_SECTIONS							= [
+INC_SECTIONS									= [
 	"// Einfuegen der standard Include-Dateien",
 	"// Einfuegen der STM Include-Dateien",
 	"// Einfuegen der eigenen Include-Dateien",
 ]
-GUARD_SECTION							= "// Sicherheitssymbol"
-DEBUG_SECTION							= "// Definiere Debug-Symbole"
-DEBUG_NAME								= re.compile(r"//\s*\w+\s+Debug[\s-]*Symbol", re.I)
-VAR_SECTION								= "// Variablen definieren"
-VAR_INC_SECTION							= "// Variablen einbinden"
-HEAD_KEYS								= ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
-KEYWORDS								= {"if", "for", "while", "switch", "return", "sizeof", "else"}
+GUARD_SECTION									= "// Sicherheitssymbol"
+DEBUG_SECTION									= "// Definiere Debug-Symbole"
+DEBUG_NAME										= re.compile(r"//\s*\w+\s+Debug[\s-]*Symbol", re.I)
+VAR_SECTION										= "// Variablen definieren"
+VAR_INC_SECTION									= "// Variablen einbinden"
+HEAD_KEYS										= ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
+KEYWORDS										= {"if", "for", "while", "switch", "return", "sizeof", "else"}
 
 # CubeMX-Dateien: nur Bereiche zwischen USER CODE BEGIN/END pruefen
-USER_CODE								= re.compile(r"^\s*/\*\s*USER CODE (BEGIN|END)\s+(.+?)\s*\*/\s*$")
-USER_CODE_SKIP							= {"Header"}
-MARKER_CAT								= "USER CODE Marker"
+USER_CODE										= re.compile(r"^\s*/\*\s*USER CODE (BEGIN|END)\s+(.+?)\s*\*/\s*$")
+USER_CODE_SKIP									= {"Header"}
+MARKER_CAT										= "USER CODE Marker"
 
 # Pruefungen der Dateistruktur, im USER-CODE-Modus nicht sinnvoll
-FILE_CATS								= {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge"}
+FILE_CATS										= {"Kopfblock", "Abschnitte", "Header", "Debug-Symbole", "Reihenfolge"}
 
 # switch/case: Fall-through-Markierung, Blockende, case-Marke
-FALLTHROUGH								= re.compile(r"^\s*(//\s*fall(s)?[ -]?thr(ough|u)\b.*|__attribute__\s*\(\(\s*fallthrough\s*\)\)\s*;.*|\[\[fallthrough\]\]\s*;.*)$", re.I)
-TERMINATOR								= re.compile(r"^\s*(break|continue|return\b.*|goto\s+\w+)\s*;$")
-LABEL									= re.compile(r"^\s*(case\b.*|default\s*):\s*$")
+FALLTHROUGH										= re.compile(r"^\s*(//\s*fall(s)?[ -]?thr(ough|u)\b.*|__attribute__\s*\(\(\s*fallthrough\s*\)\)\s*;.*|\[\[fallthrough\]\]\s*;.*)$", re.I)
+TERMINATOR										= re.compile(r"^\s*(break|continue|return\b.*|goto\s+\w+)\s*;$")
+LABEL											= re.compile(r"^\s*(case\b.*|default\s*):\s*$")
 #-----------------------------------------------------------------------
 
 # Ein Befund: Zeile (0 = ganze Datei), Kategorie, Zusatzinfo
@@ -420,8 +422,11 @@ def checkFile (path, cNames=None, userCode=False):
 			continue
 
 		i, l = found[0]
-		if not re.match(rf"// {k}\t:", l):
+		hm = re.match(rf"// {k}(\t+):", l)
+		if not hm:
 			add(i + 1, "Kopfblock", f"'{k}' Format abweichend: {short(l)}")
+		elif tabcol(l, hm.end() - 1) != HEAD_COL:
+			add(i + 1, "Kopfblock", f"'{k}' Doppelpunkt nicht auf Spalte {HEAD_COL}: {short(l)}")
 		if k == "Titel" and not l.rstrip().endswith(fname):
 			add(i + 1, "Kopfblock", f"Titel != Dateiname: {short(l)}")
 		if k == "Datum" and not re.search(r"\d\d\.\d\d\.\d{4}", l):
@@ -497,6 +502,8 @@ def checkFile (path, cNames=None, userCode=False):
 	# Zeilenweise Pruefungen
 	inBlock = False
 	firstFunc = None
+	posDepth = 0
+	posPending = False
 	for i, l in enumerate(L):
 		n = i + 1
 		s = l.strip()
@@ -579,16 +586,45 @@ def checkFile (path, cNames=None, userCode=False):
 				if not (len(prev) == 2 and prev[1] == SEP and re.match(r"// \S", prev[0])):
 					add(n, "Funktion ohne Kommentar+Trennlinie davor", short(l))
 
-		# Zeilenkommentar hinter Code
+		# Wert eines #define auf Spalte 49
+		dm = re.match(r"\s*#\s*define\s+\w+(\([^)]*\))?([ \t]+)(?=[^\s/])", code)
+		if dm:
+			col = tabcol(l, dm.end())
+			if col != VALUE_COL and tabcol(l, dm.start(2)) < VALUE_COL - 1:
+				add(n, f"Define-Wert nicht auf Spalte {VALUE_COL}", f"Spalte {col}: {short(l)}")
+			if " " in dm.group(2):
+				add(n, "Define-Wert mit Leerzeichen statt Tabs ausgerichtet", short(l))
+
+		# union/enum-Block: Member duerfen eine Positionsangabe auf Spalte 49 haben
+		inPos = posDepth > 0
+		if re.match(r"\s*(typedef\s+)?(union|enum)\b", code) and not code.endswith(";"):
+			posPending = True
+		if posPending or posDepth > 0:
+			posDepth += code.count("{") - code.count("}")
+			if "{" in code:
+				posPending = False
+
+		# Zeilenkommentar hinter Code, in union/enum zuerst die Positionsangabe
 		cm = re.search(r"\S(\s+)//", l)
 		if cm and not s.startswith("//") and '"' not in l[:cm.start() + 1]:
-			col = tabcol(l, cm.end() - 2)
-			before = l[:cm.start() + 1].strip()
-			ctx = f"{before[:40]}{' ...' if len(before) > 40 else ''}  {l[cm.end() - 2:].strip()[:40]}"
-			if col != COMMENT_COL and tabcol(l, cm.start() + 1) < COMMENT_COL - 1:
-				add(n, f"Zeilenkommentar nicht auf Spalte {COMMENT_COL}", f"Spalte {col}: {ctx}")
-			if " " in cm.group(1):
-				add(n, "Kommentar mit Leerzeichen statt Tabs ausgerichtet", ctx)
+			# Je Kommentar: Ende davor, Position von //, Leerraum davor
+			found = [(cm.start() + 1, cm.end() - 2, cm.group(1))]
+			if inPos:
+				cm2 = re.search(r"\S(\s+)//", l[cm.end():])
+				if cm2:
+					found.append((cm.end() + cm2.start() + 1, cm.end() + cm2.end() - 2, cm2.group(1)))
+			if len(found) == 2 or (inPos and tabcol(l, found[0][1]) == VALUE_COL):
+				wants = [VALUE_COL, COMMENT_COL]
+			else:
+				wants = [COMMENT_COL]
+			for (start, pos, space), want in zip(found, wants):
+				col = tabcol(l, pos)
+				before = l[:start].strip()
+				ctx = f"{before[:40]}{' ...' if len(before) > 40 else ''}  {l[pos:].strip()[:40]}"
+				if col != want and tabcol(l, start) < want - 1:
+					add(n, f"Zeilenkommentar nicht auf Spalte {want}", f"Spalte {col}: {ctx}")
+				if " " in space:
+					add(n, "Kommentar mit Leerzeichen statt Tabs ausgerichtet", ctx)
 
 	# Reihenfolge der Abschnitte
 	checkOrder(orderAnchors(L, isHeader, f"INC_{name}_H_", firstFunc), add)

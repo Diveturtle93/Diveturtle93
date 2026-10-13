@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 #-----------------------------------------------------------------------
-# Titel	:	py_stylecheck.py
+# Titel		:	py_stylecheck.py
 #-----------------------------------------------------------------------
 # Sprache	:	Python
-# Datum	:	12.10.2026
+# Datum		:	12.10.2026
 # Version	:	1.0
-# Autor	:	Diveturtle93
+# Autor		:	Diveturtle93
 # Projekt	:	Diveturtle93
 # Quelle	:
 #-----------------------------------------------------------------------
@@ -69,49 +69,51 @@ from c_stylecheck import Issue, checkOrder, cleanReports, formatIssue, inDirs, n
 
 # Definiere Debug-Symbole
 #-----------------------------------------------------------------------
-DEBUG_PY_STYLECHECK						= False
+DEBUG_PY_STYLECHECK								= False
 #-----------------------------------------------------------------------
 
 # Version definieren
 #-----------------------------------------------------------------------
-PY_STYLECHECK_MAJOR						= 1
-PY_STYLECHECK_MINOR						= 0
-PY_STYLECHECK_PATCH						= 0
-PY_STYLECHECK_DEV						= 0
+PY_STYLECHECK_MAJOR								= 1
+PY_STYLECHECK_MINOR								= 0
+PY_STYLECHECK_PATCH								= 0
+PY_STYLECHECK_DEV								= 0
 #-----------------------------------------------------------------------
 
 # Konstanten definieren
 #-----------------------------------------------------------------------
-SEP										= "#" + "-" * 71					# Trennlinie, 72 Zeichen
-COMMENT_COL								= 77								# Spalte der Zeilenkommentare
-REPORT_SUBDIR							= "py"								# Reports nach <DIR>/py/
+SEP												= "#" + "-" * 71			# Trennlinie, 72 Zeichen
+COMMENT_COL										= 77						# Spalte der Zeilenkommentare
+HEAD_COL										= 13						# Spalte des : im Kopfblock
+VALUE_COL										= 49						# Spalte des = bei Konstanten
+REPORT_SUBDIR									= "py"						# Reports nach <DIR>/py/
 
 # Virtuelle Umgebungen, Caches und Build-Ausgaben
-DEFAULT_EXCLUDE							= [
+DEFAULT_EXCLUDE									= [
 	r"[\\/](\.git|\.venv|venv|env|__pycache__|\.tox|\.mypy_cache|\.pytest_cache|build|dist|site-packages|node_modules)[\\/]",
 ]
 
-IMPORT_SECTIONS							= {
+IMPORT_SECTIONS									= {
 	"standard": "# Einfuegen der standard Module",
 	"extern": "# Einfuegen der externen Module",
 	"eigene": "# Einfuegen der eigenen Module",
 }
-DESC_SECTION							= "# Beschreibung"
-DEBUG_SECTION							= "# Definiere Debug-Symbole"
-DEBUG_NAME								= re.compile(r"#\s*\w+\s+Debug[\s-]*Symbol", re.I)
-VERSION_SECTION							= "# Version definieren"
-CONST_SECTION							= "# Konstanten definieren"
-VAR_SECTION								= "# Variablen definieren"
-VAR_INC_SECTION							= "# Variablen einbinden"
-TABLE_SECTION							= "# Funktionstabellen definieren"
-MAIN_SECTION							= "# Hauptprogramm"
-HEAD_KEYS								= ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
-VERSION_KEYS							= ["MAJOR", "MINOR", "PATCH", "DEV"]
+DESC_SECTION									= "# Beschreibung"
+DEBUG_SECTION									= "# Definiere Debug-Symbole"
+DEBUG_NAME										= re.compile(r"#\s*\w+\s+Debug[\s-]*Symbol", re.I)
+VERSION_SECTION									= "# Version definieren"
+CONST_SECTION									= "# Konstanten definieren"
+VAR_SECTION										= "# Variablen definieren"
+VAR_INC_SECTION									= "# Variablen einbinden"
+TABLE_SECTION									= "# Funktionstabellen definieren"
+MAIN_SECTION									= "# Hauptprogramm"
+HEAD_KEYS										= ["Titel", "Sprache", "Datum", "Version", "Autor", "Projekt", "Quelle"]
+VERSION_KEYS									= ["MAJOR", "MINOR", "PATCH", "DEV"]
 
 # Rang der Abschnitte fuer die Reihenfolgepruefung, gleiche Reihenfolge wie C (.h + .c)
-RANK_CLASS								= 8
-RANK_FUNC								= 11
-SECTION_RANKS							= [
+RANK_CLASS										= 8
+RANK_FUNC										= 11
+SECTION_RANKS									= [
 	(DESC_SECTION, 1),
 	(IMPORT_SECTIONS["standard"], 2),
 	(IMPORT_SECTIONS["extern"], 3),
@@ -126,19 +128,19 @@ SECTION_RANKS							= [
 ]
 
 # Zeilen, die mit diesen Schluesselwoertern beginnen, enden mit ':' und einem Block
-COMPOUND								= {"if", "elif", "else", "for", "while", "with", "try", "except", "finally", "def", "class", "async"}
-SOFT_COMPOUND							= {"match", "case"}
-OPEN									= {"(", "[", "{"}
-CLOSE									= {")", "]", "}"}
-STRING_TOKENS							= {tokenize.STRING} | {getattr(tokenize, n) for n in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, n)}
+COMPOUND										= {"if", "elif", "else", "for", "while", "with", "try", "except", "finally", "def", "class", "async"}
+SOFT_COMPOUND									= {"match", "case"}
+OPEN											= {"(", "[", "{"}
+CLOSE											= {")", "]", "}"}
+STRING_TOKENS									= {tokenize.STRING} | {getattr(tokenize, n) for n in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, n)}
 
 # Schluesselwoerter, nach denen vor "(" ein Leerzeichen steht
-SPACE_KEYWORDS							= {"if", "elif", "while", "for"}
+SPACE_KEYWORDS									= {"if", "elif", "while", "for"}
 
 # Namen wie in C: Funktionen camelCase (Modul-Praefix erlaubt), Klassen PascalCase oder <Name>_TypeDef
-CAMEL									= re.compile(r"^_*[A-Za-z][a-zA-Z0-9]*$")
-PASCAL									= re.compile(r"^_*[A-Z][a-zA-Z0-9]*(_[A-Z][a-zA-Z0-9]*)*$")
-DUNDER									= re.compile(r"^__\w+__$")
+CAMEL											= re.compile(r"^_*[A-Za-z][a-zA-Z0-9]*$")
+PASCAL											= re.compile(r"^_*[A-Z][a-zA-Z0-9]*(_[A-Z][a-zA-Z0-9]*)*$")
+DUNDER											= re.compile(r"^__\w+__$")
 #-----------------------------------------------------------------------
 
 # Variablen definieren
@@ -444,8 +446,11 @@ def checkHead (L, fname, add):
 			continue
 
 		i, l = found[0]
-		if not re.match(rf"# {k}\t:", l):
+		hm = re.match(rf"# {k}(\t+):", l)
+		if not hm:
 			add(i + 1, "Kopfblock", f"'{k}' Format abweichend: {short(l)}")
+		elif tabcol(l, hm.end() - 1) != HEAD_COL:
+			add(i + 1, "Kopfblock", f"'{k}' Doppelpunkt nicht auf Spalte {HEAD_COL}: {short(l)}")
 		if k == "Titel" and not l.rstrip().endswith(fname):
 			add(i + 1, "Kopfblock", f"Titel != Dateiname: {short(l)}")
 		if k == "Sprache" and "Python" not in l:
@@ -598,6 +603,17 @@ def checkFile (path, base):
 			add(n, "Nicht-ASCII", short(l))
 		if n not in inString and re.match(r"^\t* +\S", l):
 			add(n, "Einrueckung mit Leerzeichen", short(l))
+
+		# Konstante auf Modulebene: = auf Spalte 49, danach ein Leerzeichen
+		cm = re.match(r"^([A-Z_][A-Z0-9_]*)([ \t]*)=(?!=)", l)
+		if cm and n not in inString:
+			col = tabcol(l, cm.end() - 1)
+			if col != VALUE_COL and tabcol(l, cm.end(1)) < VALUE_COL - 1:
+				add(n, f"= der Konstante nicht auf Spalte {VALUE_COL}", f"Spalte {col}: {short(l)}")
+			if " " in cm.group(2):
+				add(n, "Konstante mit Leerzeichen statt Tabs ausgerichtet", short(l))
+			if not re.match(r" \S", l[cm.end():]):
+				add(n, "nach = der Konstante nicht genau ein Leerzeichen", short(l))
 
 	defs = []
 	if tree is not None:
