@@ -34,18 +34,13 @@ I’m currently digging deeper into the STM32 itself: how the microcontroller is
 
 ## 🧰 Coding Style
 
-All C sources (`.c` / `.h`) in my projects follow a common layout and formatting standard:
+All C and Python sources in my projects follow a common layout and formatting standard. The style guides and the matching check scripts live in their own repository:
 
-- 📄 [C_CODING_STYLE.md](C_CODING_STYLE.md) – the binding style guide (German)
-- 🐍 [tools/c_stylecheck.py](tools/c_stylecheck.py) – checks C files against the style guide
+➡️ **[Coding_Styleguide](https://github.com/Diveturtle93/Coding_Styleguide)**
 
-```sh
-py tools/c_stylecheck.py                  # all ../STM32_* folders next to this repo
-py tools/c_stylecheck.py ../STM32_Canbus  # a single project
-py tools/c_stylecheck.py -r               # write reports to reports/<YYYYMMDD>_<project>.txt
-```
-
-Generated or third-party files (HAL, CMSIS, CubeMX, build output) are skipped automatically.
+- 📄 [C Coding Style](https://github.com/Diveturtle93/Coding_Styleguide/blob/main/C_CODING_STYLE.md) – binding style guide for `.c` / `.h` (German)
+- 📄 [Python Coding Style](https://github.com/Diveturtle93/Coding_Styleguide/blob/main/PYTHON_CODING_STYLE.md) – binding style guide for `.py` (German)
+- 🐍 [Stylecheck tools](https://github.com/Diveturtle93/Coding_Styleguide/tree/main/tools) – check source files against the style guides and write reports
 
 ## 📈 GitHub Stats
 
