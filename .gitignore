@@ -1,2 +1,5 @@
-# Style-Reports von tools/c_stylecheck.py
+# Style-Reports von tools/c_stylecheck.py und tools/py_stylecheck.py
 reports/
+
+# Python-Cache (py_stylecheck.py importiert c_stylecheck.py)
+__pycache__/
